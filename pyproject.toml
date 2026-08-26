@@ -1,0 +1,49 @@
+[project]
+name = "urban-crime-subgraphs"
+version = "0.1.0"
+description = "Análisis de crimen urbano sobre red vial: hotspots, embeddings y comparación por POIs"
+requires-python = ">=3.11"
+dependencies = [
+    "networkx>=3.3",
+    "osmnx>=2.0",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "shapely>=2.0",
+    "geopandas>=1.0",
+    "pyproj>=3.6",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# La fase E (§5) necesita estas dos para la proyección UMAP y el clustering
+# HDBSCAN. Sin ellas el pipeline sigue corriendo: §5.3 exige que las coordenadas
+# del dashboard se generen siempre, así que hay fallback a PCA y a «sin clúster».
+#
+# `gensim` NO está: no publica wheel para Python 3.14 (pip resuelve a la 0.10.1,
+# de 2014, incompatible con numpy 2). El Doc2Vec PV-DBOW de graph2vec va escrito
+# en numpy dentro de `pipeline/features/embedding.py`.
+# `karateclub` daría gl2vec y feather; sin ella esos métodos caen a netlsd.
+features = ["scikit-learn>=1.5", "umap-learn>=0.5"]
+dev = ["pytest>=8.0", "mypy>=1.10"]
+
+[project.scripts]
+crimepipe = "pipeline.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pipeline", "pipeline.ingest", "pipeline.features"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error::DeprecationWarning:pipeline.*"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true

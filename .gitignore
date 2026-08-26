@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# Datos crudos e intermedios (§2): no se versionan
+data/raw/
+data/interim/
+
+# Caché de descargas (red vial, POIs vía Overpass)
+cache/
+
+node_modules/
+dist/

@@ -1,0 +1,123 @@
+{
+  "place": "Chicago, Illinois, USA",
+  "source": "download",
+  "downloaded": 54430,
+  "kept": 26708,
+  "excluded": 27471,
+  "unknown": 251,
+  "unknown_rate": 0.0093,
+  "dropped_no_geometry": 0,
+  "by_category": {
+    "food": 6356,
+    "nightlife": 1455,
+    "retail": 4882,
+    "education": 1775,
+    "health": 1124,
+    "finance": 660,
+    "park": 10306,
+    "police": 150
+  },
+  "top_unknown": [
+    {
+      "tag": "amenity=post_depot",
+      "n": 20
+    },
+    {
+      "tag": "amenity=dojo",
+      "n": 16
+    },
+    {
+      "tag": "amenity=parcel_locker",
+      "n": 16
+    },
+    {
+      "tag": "amenity=shower",
+      "n": 14
+    },
+    {
+      "tag": "leisure=bowling_alley",
+      "n": 14
+    },
+    {
+      "tag": "leisure=fitness_station",
+      "n": 12
+    },
+    {
+      "tag": "amenity=boat_rental",
+      "n": 10
+    },
+    {
+      "tag": "amenity=prep_school",
+      "n": 9
+    },
+    {
+      "tag": "amenity=payment_terminal",
+      "n": 9
+    },
+    {
+      "tag": "amenity=conference_centre",
+      "n": 9
+    },
+    {
+      "tag": "amenity=trolley_bay",
+      "n": 9
+    },
+    {
+      "tag": "amenity=animal_boarding",
+      "n": 8
+    },
+    {
+      "tag": "amenity=device_charging_station",
+      "n": 7
+    },
+    {
+      "tag": "amenity=dancing_school",
+      "n": 7
+    },
+    {
+      "tag": "amenity=dog_toilet",
+      "n": 7
+    },
+    {
+      "tag": "amenity=boat_storage",
+      "n": 6
+    },
+    {
+      "tag": "amenity=weighbridge",
+      "n": 5
+    },
+    {
+      "tag": "amenity=dressing_room",
+      "n": 4
+    },
+    {
+      "tag": "leisure=indoor_play",
+      "n": 4
+    },
+    {
+      "tag": "amenity=vehicle_inspection",
+      "n": 3
+    },
+    {
+      "tag": "leisure=trampoline_park",
+      "n": 3
+    },
+    {
+      "tag": "leisure=practice_pitch",
+      "n": 3
+    },
+    {
+      "tag": "leisure=schoolyard",
+      "n": 3
+    },
+    {
+      "tag": "amenity=research_institute",
+      "n": 2
+    },
+    {
+      "tag": "amenity=vacant",
+      "n": 2
+    }
+  ],
+  "elapsed_s": 11.79
+}

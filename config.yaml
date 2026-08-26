@@ -1,0 +1,132 @@
+# Urban Crime Subgraphs — configuración única del pipeline.
+#
+# Nada de constantes mágicas en el código (PROJECT_SPEC §10): σ, α, K, f_min,
+# el buffer de POIs, los pesos de fusión y las dimensiones del embedding viven
+# aquí. Los valores por defecto son los que fija la especificación.
+
+project:
+  name: urban-crime-subgraphs
+  random_state: 42          # todo lo estocástico toma su semilla de aquí
+
+# ─── Fuentes de datos ──────────────────────────────────────────────────────
+data:
+  crimes_csv: data/raw/Crimes_-_2001_to_Present_20260822.csv
+  raw_dir: data/raw
+  interim_dir: data/interim
+  processed_dir: data/processed
+
+  # Ventana de trabajo (§3.1). null = sin límite por ese extremo.
+  month_from: "2024-01"
+  month_to: "2025-12"
+
+  # Categorías de análisis (§3.1). null = todas.
+  categories:
+    - THEFT
+    - ASSAULT
+    - ROBBERY
+    - MOTOR VEHICLE THEFT
+
+  # Clave de deduplicación: auto | id | content | none.
+  # `content` colapsa incidentes distintos que comparten manzana y hora
+  # reportada, porque la fuente geocodifica al centroide del bloque.
+  dedupe: auto
+
+# ─── Red vial (§3.3) ───────────────────────────────────────────────────────
+network:
+  place: "Chicago, Illinois, USA"
+  network_type: drive
+  simplify: true
+
+  # La descarga es lenta y no determinista en el tiempo: se cachea en GraphML
+  # y no se vuelve a bajar salvo --force.
+  cache: data/interim/network.graphml
+
+  # Plegado de la clase `highway` de OSM a una jerarquía ordenada (§3.3).
+  # El orden de las claves importa: es el orden de la jerarquía.
+  hierarchy:
+    expressway: [motorway, motorway_link, trunk, trunk_link]
+    avenue:     [primary, primary_link]
+    collector:  [secondary, secondary_link, tertiary, tertiary_link]
+    street:     [residential, living_street, unclassified, road]
+    service:    [service, track, busway]
+  hierarchy_default: street
+
+# ─── Snapping de crímenes al grafo (§4.0) ──────────────────────────────────
+snapping:
+  # Distancia máxima punto→arista. Más allá el crimen se considera fuera de la
+  # red y se descarta (parques interiores, muelles, errores de geocodificación).
+  max_distance_m: 200.0
+  # Radio de la Tierra usado en haversine.
+  earth_radius_m: 6371000.0
+
+# ─── Campo de densidad (§4.1) ──────────────────────────────────────────────
+#
+# σ, α y f_min aceptan un número o la cadena `auto`. Con `auto`, el valor sale
+# de `crimepipe calibrate`, que localiza la rodilla de la frontera de Pareto
+# entre cobertura y densidad **sin usar los números de referencia de §7.3**.
+# Ese criterio es el que hace la calibración portable a otro dataset: sobre
+# Chicago 2024-2025 cae en 12.7 % de cobertura, a 0.2 puntos del 12.5 % de la
+# spec, sin haberlo visto nunca.
+density:
+  sigma_m: 120.0        # ancho de banda del kernel gaussiano (≈ una cuadra corta)
+  truncate_sigmas: 3.0  # r = 3σ; más allá la gaussiana aporta <1 %
+
+# ─── Extracción de hotspots (§4.2 – §4.3) ──────────────────────────────────
+hotspots:
+  alpha: 0.3            # umbral de persistencia τ = α · max f
+  top_k: 20             # subgrafos retenidos por mes
+
+  # Piso de densidad: fracción de max f por debajo de la cual un nodo no entra
+  # en el barrido. Mantiene las regiones compactas (§4.3).
+  #
+  # Es el único parámetro del extractor que la especificación menciona sin dar
+  # valor, así que está CALIBRADO, no elegido a ojo: `scripts/calibrate_fmin.py`
+  # barre el rango y contrasta contra los objetivos de §7.3. A 0.10 la cobertura
+  # cae en 12.5 % y los crímenes capturados a −0.7 % del objetivo. Subirlo a
+  # 0.11 ajusta mejor la densidad (3.04 vs 3.11) a costa de perder 6.8 % de
+  # crimen capturado. Ver README para la tabla completa.
+  f_min_ratio: 0.10
+
+# ─── Línea base (§7.2) ─────────────────────────────────────────────────────
+baseline:
+  method: bfs
+  # `greedy` es el «region growing voraz» de §7.2: la frontera se ordena por
+  # crimen del vecino, así que la región elige hacia dónde crecer. `bfs` es
+  # anchura pura —crece igual en todas direcciones— y sirve de suelo: mide
+  # cuánto se pierde por no ser voraz.
+  growth: greedy
+  # Cada región crece hasta igualar la huella media de nodos del extractor
+  # topológico de ese mes. Sin igualar la huella, comparar cobertura no mide
+  # nada: gana el que haga los subgrafos más grandes (§7.1).
+  match_footprint: true
+  node_budget: 18       # solo si match_footprint es false
+
+# ─── Puntos de interés (§3.2) ──────────────────────────────────────────────
+pois:
+  taxonomy: pipeline/ingest/poi_taxonomy.yaml
+  cache: data/interim/pois.parquet
+  buffer_m: 50.0        # buffer de la envolvente convexa del subgrafo
+
+# ─── Features y similitud (§5) ─────────────────────────────────────────────
+features:
+  # El descriptor estructural son 12 dims: 8 de conectividad + 4 de geometría.
+  # Las dos dims derivadas de crimen del código anterior se movieron a
+  # CrimeProfile (§5.1). No vuelven a entrar aquí.
+  embedding:
+    method: graph2vec        # graph2vec | gl2vec | feather | gcn | netlsd
+    dimensions: 128
+    wl_iterations: 2
+    epochs: 50
+
+similarity:
+  weights:
+    structural: 1.0
+    embedding: 1.0
+    hierarchy: 0.5
+  top_k_similar: 5
+  umap:
+    n_neighbors: 15
+    min_dist: 0.1
+    metric: cosine
+  hdbscan:
+    min_cluster_size: 5

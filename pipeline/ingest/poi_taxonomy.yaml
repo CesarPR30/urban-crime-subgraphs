@@ -1,0 +1,248 @@
+# Taxonomía de puntos de interés (PROJECT_SPEC §3.2).
+#
+# Mapeo etiqueta OSM -> categoría funcional. Vive aquí y no en el código para
+# que se pueda auditar y extender a otra ciudad sin tocar el pipeline.
+#
+# Estructura:
+#   categories:  las OCHO categorías funcionales de §3.2, en orden fijo. El
+#                orden es el de las columnas del perfil de POIs: cambiarlo
+#                invalida los artefactos ya generados.
+#   tags:        por cada llave OSM (`amenity`, `shop`, `leisure`), qué valores
+#                caen en qué categoría.
+#   shop_default: `shop` tiene cientos de valores y casi todos son comercio.
+#                Se listan solo las excepciones y el resto cae aquí.
+#   excluded:    etiquetas que se descartan **a propósito**. Ver abajo.
+#
+# ## Dos formas de descartar, que no son la misma
+#
+# Consultar `amenity` sobre una ciudad entera devuelve sobre todo mobiliario
+# urbano: en Chicago, 9 197 aparcamientos, 4 580 plazas de aparcamiento, 2 378
+# aparcabicis, 1 896 bancos, 1 875 buzones. Son infraestructura, no destinos:
+# no describen un uso de suelo y no deben entrar en la distribución funcional
+# ni en la entropía.
+#
+# Por eso hay dos cubos separados:
+#
+#   * `excluded`  — lo sé y no lo quiero. No dice nada de la taxonomía.
+#   * desconocido — no lo tengo mapeado. **Esta** es la métrica de si el YAML
+#                   cubre la ciudad, y la que dispara el aviso del reporte.
+#
+# Mezclarlos daba un 53 % de "descartes" que parecía un fallo de cobertura y
+# era, en realidad, la proporción de aparcamientos de Chicago.
+
+categories:
+  - food        # alimentación: restaurantes, cafés, comida rápida
+  - nightlife   # vida nocturna: bares, pubs, discotecas
+  - retail      # comercio
+  - education   # educación
+  - health      # salud
+  - finance     # finanzas
+  - park        # parques y espacio verde
+  - police      # policía
+
+#: Etiquetas legibles para el dashboard, en el mismo orden que `categories`.
+labels:
+  food: Alimentación
+  nightlife: Vida nocturna
+  retail: Comercio
+  education: Educación
+  health: Salud
+  finance: Finanzas
+  park: Parques
+  police: Policía
+
+tags:
+  amenity:
+    food:
+      - restaurant
+      - cafe
+      - fast_food
+      - food_court
+      - ice_cream
+      - biergarten          # sirve comida; la bebida sola va en nightlife
+    nightlife:
+      - bar
+      - pub
+      - nightclub
+      - stripclub
+      - casino
+      # Ocio nocturno no alcohólico: llenan la calle a las mismas horas y por
+      # eso pertenecen aquí, no a `retail`.
+      - theatre
+      - cinema
+      - arts_centre
+      - events_venue
+      - studio
+    education:
+      - school
+      - university
+      - college
+      - kindergarten
+      - library
+      - language_school
+      - driving_school
+      - music_school
+      - childcare
+      - community_centre
+      - social_centre
+      - public_bookcase
+      - library_dropoff
+    health:
+      - hospital
+      - clinic
+      - doctors
+      - dentist
+      - pharmacy
+      - veterinary
+      - nursing_home
+      - social_facility
+    police:
+      - police
+      - fire_station        # servicio de emergencia con la misma función urbana
+      - prison
+    finance:
+      - bank
+      - atm
+      - bureau_de_change
+      - money_transfer
+    retail:
+      - marketplace
+      - vending_machine
+      - fuel
+      - car_wash
+      - car_rental
+      - post_office
+
+  leisure:
+    park:
+      - park
+      - garden
+      - playground
+      - nature_reserve
+      - dog_park
+      - pitch
+      - sports_centre
+      - fitness_centre
+      - swimming_pool
+      - stadium
+      - recreation_ground
+      - track
+      - mixed-use_track
+      - sports_hall
+      - bleachers
+      - golf_course
+      - miniature_golf
+      - water_park
+      - ice_rink
+      - horse_riding
+      - marina
+      - common
+    nightlife:
+      - dance
+      - adult_gaming_centre
+      - amusement_arcade
+
+  shop:
+    # `shop` es comercio salvo estas excepciones.
+    food:
+      - bakery
+      - butcher
+      - greengrocer
+      - supermarket
+      - convenience
+      - deli
+      - seafood
+      - confectionery
+      - pastry
+      - cheese
+      - coffee
+      - tea
+      - farm
+    nightlife:
+      - alcohol
+      - beverages
+      - wine
+    health:
+      - chemist
+      - optician
+      - hearing_aids
+      - medical_supply
+      - herbalist
+    education:
+      - books
+      - stationery
+
+#: Cualquier valor de `shop` no listado arriba cae aquí.
+shop_default: retail
+
+# Descartes deliberados: infraestructura y mobiliario urbano. No son destinos y
+# no describen un uso de suelo, así que contarlos deformaría la distribución y
+# la entropía —una manzana con veinte aparcabicis no es "diversa"—.
+excluded:
+  amenity:
+    # Aparcamiento: 14 674 elementos en Chicago, el 27 % de todo lo descargado.
+    - parking
+    - parking_space
+    - parking_entrance
+    - parking_meter
+    - motorcycle_parking
+    - bicycle_parking
+    - bicycle_rental
+    - bicycle_repair_station
+    - car_sharing
+    - charging_station
+    # Mobiliario urbano.
+    - bench
+    - post_box
+    - waste_basket
+    - waste_disposal
+    - waste_transfer_station
+    - recycling
+    - shelter
+    - toilets
+    - drinking_water
+    - fountain
+    - clock
+    - telephone
+    - grit_bin
+    - bbq
+    - smoking_area
+    - loading_dock
+    - ticket_validator
+    - ticket_booth
+    - lounger
+    - photo_booth
+    - luggage_locker
+    # Transporte: relevante para la ciudad, pero no es uso de suelo comercial
+    # ni residencial y §3.2 fija ocho categorías sin casilla para él.
+    - bus_station
+    - ferry_terminal
+    - taxi
+    - car_pooling
+    # Culto: 1 840 elementos, un uso de suelo real. Se excluye a propósito
+    # porque ninguna de las ocho categorías de §3.2 le corresponde y meterlo a
+    # la fuerza en `education` o `retail` deformaría la entropía funcional.
+    # Si el estudio quisiera medirlo, la decisión correcta es ampliar §3.2, no
+    # reetiquetarlo aquí.
+    - place_of_worship
+    - grave_yard
+    - funeral_hall
+    - crematorium
+    # Otros equipamientos sin casilla.
+    - townhall
+    - courthouse
+    - fire_hydrant
+    - public_building
+    - animal_shelter
+    - monastery
+    - internet_cafe
+  leisure:
+    - outdoor_seating
+    - picnic_table
+    - firepit
+    - bandstand
+    - slipway
+    - hot_tub
+    - sauna
+    - fishing
+    - bird_hide
