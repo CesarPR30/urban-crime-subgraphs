@@ -703,14 +703,22 @@ def cmd_features(cfg, args) -> int:
     with timed("Huella de jerarquía vial", logger):
         H = hierarchy_matrix(subs, order)
 
-    embedder = build_embedder(cfg)
-    with timed(f"Embedding {embedder.name}", logger):
-        E = embedder.fit_transform([sg.graph() for sg in subs])
-    logger.info("Embedding: %s (%s)", E.shape, embedder.name)
+    from .features.embedding import build_embedders
 
-    blocks = Blocks(structural=S, embedding=E, hierarchy=H)
-    with timed("Fusión, coseno, top-K y proyección", logger):
-        res = run(subs, blocks, cfg)
+    graphs = [sg.graph() for sg in subs]
+    embedders = build_embedders(cfg)          # el principal primero
+    results: dict[str, object] = {}
+    for emb in embedders:
+        with timed(f"Embedding {emb.name}", logger):
+            Ek = emb.fit_transform(graphs)
+        logger.info("Embedding: %s (%s)", Ek.shape, emb.name)
+        with timed(f"Fusión, coseno, top-K y proyección ({emb.name})", logger):
+            rk = run(subs, Blocks(structural=S, embedding=Ek, hierarchy=H), cfg)
+        rk.meta["embedding_dims"] = int(Ek.shape[1])
+        results[emb.name] = rk
+
+    embedder = embedders[0]
+    res = results[embedder.name]
 
     # Los POIs van DESPUÉS de la similitud, no antes. No es casualidad de
     # orden: §5.1 prohíbe que entren en la comparación, y calcularlos aquí deja
@@ -737,6 +745,36 @@ def cmd_features(cfg, args) -> int:
     )
 
     payload = _similarity_payload(res, subs, S, H, order, profiles, art)
+
+    # Modo comparativo: cada método con su top-5 y sus coordenadas 2D, para que
+    # el cajón de embeddings del dashboard pueda conmutar entre ellos. El
+    # principal ya está en el nivel superior; aquí van todos, con la misma forma.
+    if len(results) > 1:
+        payload["methods"] = {
+            name: {
+                "meta": {
+                    "embedding_dims": rk.meta.get("embedding_dims"),
+                    "fused_dims": rk.meta["fused_dims"],
+                    "projection": rk.meta["projection"],
+                    "clustering": rk.meta["clustering"],
+                    "n_clusters": rk.meta["n_clusters"],
+                    "n_noise": rk.meta["n_noise"],
+                },
+                "hotspots": {
+                    sg.id: {
+                        "x": round(float(rk.coords[i, 0]), 4),
+                        "y": round(float(rk.coords[i, 1]), 4),
+                        "cluster": int(rk.labels[i]),
+                        "similar": rk.top[sg.id],
+                        "similar_distinct": rk.top_distinct[sg.id],
+                    }
+                    for i, sg in enumerate(subs)
+                },
+            }
+            for name, rk in results.items()
+        }
+        payload["meta"]["methods"] = list(results)
+
     save_json(paths.similarity, payload)
     if profiles and poi_report:
         save_json(paths.processed / "poi_profiles.json", {
@@ -752,11 +790,11 @@ def cmd_features(cfg, args) -> int:
     save_json(paths.embedding_2d, {
         "meta": {k: res.meta[k] for k in ("projection", "clustering", "n_clusters",
                                           "n_noise", "random_state")},
-        "methods": {embedder.name: [
-            {"id": i, "x": round(float(x), 4), "y": round(float(y), 4),
-             "cluster": int(c)}
-            for i, (x, y), c in zip(res.ids, res.coords, res.labels)
-        ]},
+        "methods": {name: [
+            {"id": rk.ids[i], "x": round(float(rk.coords[i, 0]), 4),
+             "y": round(float(rk.coords[i, 1]), 4), "cluster": int(rk.labels[i])}
+            for i in range(len(rk.ids))
+        ] for name, rk in results.items()},
     })
     out = cfg.root / "dashboard" / "public" / "data" / "similarity.json"
     save_json(out, payload)
@@ -874,6 +912,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--force", action="store_true", help="ignora la caché")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
+
+    # La consola de Windows suele venir en cp1252 y los resúmenes llevan
+    # caracteres Unicode (§, →, ─). Sin esto, un `print` los rompería.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

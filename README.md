@@ -419,39 +419,95 @@ La σ no es decorativa: se lee de `sigma_m` del propio artefacto (**120 m**), as
 que los cerros tienen el ancho real del kernel con el que se extrajeron los
 hotspots. Se está mirando la superficie sobre la que se buscaron los máximos.
 
-Cómo se construye, en la vista actual y con el filtro actual:
+#### Una malla propia, no `fill-extrusion`
 
-1. La carga por nodo (`computeNodeCounts`, la misma que alimenta la vista de
-   nodos: las dos no pueden desincronizarse) se reparte en una rejilla.
+`fill-extrusion` solo sabe levantar **prismas**: cada celda es un cubo de altura
+constante con paredes verticales entre vecinas. Una gaussiana no tiene escalones,
+así que el resultado era una escalera con la silueta de una colina.
+
+El relieve es una **capa `custom`**: MapLibre entrega el contexto de WebGL y la
+matriz de proyección, y la malla la dibujamos nosotros. La altura vive en los
+**vértices**, de modo que el triángulo interpola entre muestras, y la normal se
+arma en el vertex shader a partir del **gradiente del campo** —diferencias
+centrales sobre la altura normalizada—. El sombreado sigue entonces la pendiente
+real de la gaussiana y no la cara de un prisma. No hay tipo de capa de estilo que
+sepa hacer esto; por eso se baja a WebGL y no por gusto.
+
+Detalles que hay que acertar o no se ve nada:
+
+- **Índices de 32 bits.** La malla pasa de 65 535 vértices. En WebGL2 vienen de
+  serie; en WebGL1 hacen falta por extensión, y si no está, el relieve **no se
+  dibuja** en vez de dibujar basura.
+- **Soltar el VAO** antes de tocar los atributos, y **deshabilitarlos** después:
+  en WebGL2 MapLibre deja uno enlazado, y el estado de atributos es global.
+- **`depthMask(true)`**: MapLibre lo deja cerrado en algunas pasadas y la
+  superficie se dibujaría sin escribir profundidad.
+
+#### La rejilla es fija: la cámara no la deforma
+
+La primera versión construía la rejilla sobre la vista actual. Al mover la
+cámara cambiaban el tamaño de celda, la extensión **y la altura del pico**, así
+que el terreno se deformaba bajo el cursor. Un campo escalar no depende de dónde
+se mire.
+
+Ahora la malla se calcula **una vez sobre el bbox de los datos**, con la celda en
+metros y la altura en metros. Girar, inclinar o acercarse no toca un solo
+vértice: la cámara solo la mira. Consecuencia buena: `moveend` ya no reconstruye
+nada, y la malla solo se rehace cuando cambia el filtro, que es lo único que
+cambia el campo.
+
+Cómo se construye:
+
+1. La carga por nodo (`computeNodeCounts`, **la misma función** que alimenta la
+   vista de nodos: las dos no pueden desincronizarse) se reparte en la rejilla.
 2. Convolución gaussiana **separable** — una gaussiana 2D es el producto de dos
-   1D, así que son dos pasadas de (2r+1) muestras en vez de una de (2r+1)². Con
-   20 000 celdas y 25 muestras son ~0,5 M multiplicaciones, medio milisegundo.
-3. Una celda `fill-extrusion` por casilla por encima del 4 % del máximo; por
-   debajo no se dibuja, o el mapa sería una losa plana con bultos.
+   1D, así que son dos pasadas de (2r+1) muestras en vez de una de (2r+1)².
+3. Se tejen dos triángulos por cuadro, y **solo** donde alguna esquina supera el
+   2 % del máximo: donde el campo es nada no hay geometría y se ve el mapa base,
+   no una losa a cota cero.
 
-El lado de celda se mantiene en la banda **[σ/4, σ]**: por debajo de σ/4 la
-gaussiana ya no varía dentro de la celda —más celdas no añaden información al
-campo, solo polígonos—; por encima de σ el kernel no llega ni a tres muestras y
-los cerros salen a cuadros. Un techo de 30 000 polígonos relaja el límite
-superior cuando la vista es enorme. Resultado medido: 8 000–21 000 celdas de
-9–17 px de lado a cualquier zoom, con el kernel entre 3 y 25 muestras.
+El lado de celda se mantiene en la banda **[σ/3, σ]**. Por debajo de σ/2 la
+gaussiana ya está muestreada de sobra y más vértices no añaden información al
+campo; por encima de σ el kernel no llega a tres muestras. Un techo de 550 000
+vértices engorda la celda si hiciera falta. Medido sobre el bbox real
+(33,7 × 41,8 km):
 
-Dos decisiones que no son obvias:
+| detalle | celda | rejilla | vértices | triángulos | muestras del kernel |
+|---|---|---|---|---|---|
+| 0,44× | 120 m | 289 × 356 | 103 k | 204 k | 7 |
+| **1,00×** | **60 m** | **576 × 710** | **409 k** | **815 k** | **13** |
+| 1,52× y más | 53 m | 653 × 805 | 526 k | 1 048 k | 15 |
 
-- **El ancho se mide a la escala del centro, no con el bbox.** Con la cámara
-  inclinada el bbox se dispara hacia el horizonte, y usarlo hundiría la
-  resolución justo cuando se está usando la vista en 3D. Por lo mismo el bbox se
-  acota a 3× el ancho de la vista.
-- **Un relieve visto a plomo es un mapa de calor con peor rampa.** Al activarlo,
-  si la cámara está vertical se inclina sola una vez (55°); a partir de ahí manda
-  el usuario. Se gira e inclina arrastrando con el **botón derecho**.
+Solo se sube a la GPU lo que cambió: las posiciones son estáticas, y un cambio de
+filtro reescribe alturas, gradientes e índices. Las subidas ocurren dentro del
+`render`, porque el contexto de GL solo es válido ahí y así una ráfaga de cambios
+sube una vez y no una por cambio.
 
-Y una diferencia que hay que decir: el pipeline mide distancias **geodésicas
-sobre la red vial** y esta vista las mide en línea recta. Al otro lado de un río
-o de una autopista sin cruce, el pipeline no propaga densidad y el relieve sí. Es
-una aproximación para mirar, no el campo con el que se calculó nada. A escala de
-ciudad, además, una campana de 120 m es más pequeña que una celda: lo que se ve
-entonces es el agregado, y las campanas individuales aparecen al acercarse.
+#### Las zonas seleccionadas
+
+Con algo en foco, el terreno de fuera **pierde el color y conserva el relieve**:
+se sigue leyendo la forma del campo, y la zona seleccionada es la única que
+mantiene la rampa de densidad. Es el mismo idioma de foco que ya usan las demás
+capas, llevado a la superficie.
+
+La máscara se calcula con el **mismo polígono que dibuja el mapa** —la envolvente
+con su buffer de §5.6—, no con una aproximación: si el relieve marcara un área y
+el mapa otra, el usuario vería dos zonas distintas para el mismo subgrafo. Solo
+se prueban los vértices del bbox de cada polígono, así que el coste va con el
+área en foco y no con la malla entera, y cambiar el foco **no recalcula el
+campo**: solo reescribe un atributo.
+
+#### Lo que hay que decir
+
+El pipeline mide distancias **geodésicas sobre la red vial** y esta vista las
+mide en línea recta. Al otro lado de un río o de una autopista sin cruce, el
+pipeline no propaga densidad y el relieve sí. Es una aproximación para mirar, no
+el campo con el que se calculó nada. Se quita exportando `f` por nodo y por mes
+—1,4 MB cuantizado a uint16— e interpolándolo sobre esta misma malla.
+
+Y un relieve visto a plomo es un mapa de calor con peor rampa: al activarlo, si
+la cámara está vertical se inclina sola una vez (58°). A partir de ahí manda el
+usuario, arrastrando con el **botón derecho**.
 
 **La línea de tiempo se dibuja a píxeles reales.** Tenía un `viewBox` de 1200 con
 `preserveAspectRatio="none"`: en una pantalla de 2000 px eso multiplica la

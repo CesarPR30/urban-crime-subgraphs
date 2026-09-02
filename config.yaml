@@ -113,10 +113,15 @@ features:
   # Las dos dims derivadas de crimen del código anterior se movieron a
   # CrimeProfile (§5.1). No vuelven a entrar aquí.
   embedding:
-    method: graph2vec        # graph2vec | gl2vec | feather | gcn | netlsd
+    method: graph2vec        # graph2vec | gl2vec | feather | gcn | netlsd | wwl | scattering
     dimensions: 128
     wl_iterations: 2
     epochs: 50
+    # Métodos extra que `crimepipe features` calcula en la misma corrida para
+    # poder compararlos en el dashboard (selector del cajón de embeddings).
+    #   wwl        Wasserstein Weisfeiler–Lehman   (Togninalli et al., NeurIPS 2019)
+    #   scattering Geometric Scattering Transform  (Gao, Wolf, Hirn, ICML 2019)
+    compare: [wwl, scattering]
 
 similarity:
   weights:

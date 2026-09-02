@@ -133,11 +133,17 @@ class PoisCfg(BaseModel):
     buffer_m: float = 50.0
 
 
+_EMBED_METHODS = Literal["graph2vec", "gl2vec", "feather", "gcn", "netlsd", "wwl", "scattering"]
+
+
 class EmbeddingCfg(BaseModel):
-    method: Literal["graph2vec", "gl2vec", "feather", "gcn", "netlsd"] = "graph2vec"
+    method: _EMBED_METHODS = "graph2vec"
     dimensions: int = 128
     wl_iterations: int = 2
     epochs: int = 50
+    #: Métodos extra a calcular en la misma corrida para compararlos en el
+    #: dashboard. El principal (`method`) va siempre; estos se añaden.
+    compare: list[_EMBED_METHODS] = []
 
 
 class FeaturesCfg(BaseModel):

@@ -74,11 +74,20 @@ class Subgraph:
         La renumeración es intencionada: el embedding no debe poder distinguir
         dos subgrafos isomorfos por el id OSM de sus nodos (§9, criterio de
         aceptación de la fase E).
+
+        Lleva además, como atributos, la geometría (`xy` por nodo, en metros del
+        plano proyectado) y la clase vial (`cls` por arista). No son datos de
+        crimen —§5.1 sigue a salvo— y los métodos de embedding que sí miran la
+        forma métrica (WWL, scattering) los usan; graph2vec y netlsd los ignoran.
         """
         index = {osm: i for i, osm in enumerate(self.nodes)}
         g = nx.Graph()
         g.add_nodes_from(range(self.n))
-        g.add_edges_from((index[u], index[v]) for u, v in self.edges)
+        for i in range(self.n):
+            g.nodes[i]["xy"] = (float(self.xy[i, 0]), float(self.xy[i, 1]))
+        classes = self.edge_class or [""] * len(self.edges)
+        for (u, v), cls in zip(self.edges, classes):
+            g.add_edge(index[u], index[v], cls=cls)
         return g
 
     def degrees(self) -> np.ndarray:

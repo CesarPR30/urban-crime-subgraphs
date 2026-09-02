@@ -336,6 +336,17 @@
   }
   .minitog[aria-pressed="true"] { background: var(--hs-dim); border-color: var(--hs); color: var(--hs-deep); }
   .minitog:disabled { opacity: .45; cursor: default; }
+  .embmethod {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+    font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .embmethod select {
+    flex: 1; padding: 4px 6px; font: inherit; font-size: 11px; font-weight: 500;
+    text-transform: none; letter-spacing: 0; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+    cursor: pointer;
+  }
 
   /* ─── Cajón del espacio de embeddings ─────────────────────────────── */
   .clusters { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 4px; }
@@ -802,7 +813,7 @@
     <b id="s-nodemax">—</b><span>máx / nodo</span>
   </div>
   <div class="readout glass" id="readout-relief" hidden>
-    <b id="s-relief">—</b><span>celdas</span>
+    <b id="s-relief">—</b><span>triángulos</span>
     <b id="s-relsigma">—</b><span>σ del kernel</span>
   </div>
 
@@ -1009,9 +1020,13 @@
       <p class="hint">Mismo campo que el mapa de calor —la densidad gaussiana de
       §4.1, con la <b>σ del propio pipeline</b>— pero codificado en altura, que
       se lee mejor arriba: dos manchas del rojo más saturado son iguales, dos
-      cerros no. Arrastra con el <b>botón derecho</b> para inclinar y girar.
-      El detalle no baja de σ/4: por debajo de eso la celda ya no aporta
-      información al campo, solo polígonos.</p>
+      cerros no. Arrastra con el <b>botón derecho</b> para inclinar y girar.</p>
+      <p class="hint">La malla se calcula <b>una vez sobre el bbox de los
+      datos</b>, con celda y altura en metros: mover la cámara no la deforma
+      ni la vuelve a construir. El detalle no baja de σ/3 —por debajo de σ/2
+      la gaussiana ya está muestreada de sobra y más vértices no añaden
+      información—. Con algo en foco, el terreno de fuera pierde el color y
+      conserva el relieve.</p>
     </div>
 
     <div class="group" id="cfg-charts">
@@ -1094,6 +1109,47 @@ let POIARR = null;    // vistas tipadas sobre pois.bin
 let poiOn = false;
 let simIndex = new Map();   // id de hotspot -> su registro de similitud
 let simDistinct = true;     // excluir de la lista el mismo lugar en otro mes
+let embMethod = null;       // método de embedding activo en el cajón (comparativo)
+
+/* ─── Embeddings comparativos ────────────────────────────────────────
+ * `similarity.json` puede traer varios métodos (graph2vec, WWL, scattering).
+ * `embOf(id)` devuelve el registro de un subgrafo bajo el método activo:
+ * con el de por defecto es el propio registro; con otro, se le superponen
+ * x/y/cluster/similar/similar_distinct de ese método. Es el único sitio que
+ * mira `embMethod`. */
+const EMB_LABELS = {
+  graph2vec: "graph2vec (WL + Doc2Vec)",
+  wwl: "Wasserstein Weisfeiler–Lehman",
+  scattering: "Geometric Scattering",
+  gl2vec: "GL2Vec", feather: "FEATHER", gcn: "GCN", netlsd: "NetLSD",
+};
+function embMethods() {
+  if (!SIM) return [];
+  const def = SIM.meta.embedding_method;
+  return [def, ...Object.keys(SIM.methods || {}).filter(k => k !== def)];
+}
+function embLabel(name) { return EMB_LABELS[name] || name; }
+function embOf(id) {
+  const base = simIndex.get(id);
+  if (!base) return null;
+  const def = SIM.meta.embedding_method;
+  if (!embMethod || embMethod === def || !SIM.methods) return base;
+  const o = SIM.methods[embMethod] && SIM.methods[embMethod].hotspots[id];
+  return o ? { ...base, ...o } : base;
+}
+function setEmbMethod(name) {
+  if (name === embMethod) return;
+  embMethod = name;
+  try { localStorage.setItem("embMethod", name); } catch (e) {}
+  // El foco por «similares» se calculó con el método anterior: recomponerlo.
+  if (focusSource === "similares" && hsRef) setFocus(focusOfRef(hsRef), "similares");
+  simDrawn = false;
+  drawEmbeddingScatter();
+  const mm = (SIM.methods && SIM.methods[name] && SIM.methods[name].meta) || SIM.meta;
+  $("embed-sub").textContent =
+    `${SIM.meta.n} subgrafos · ${(mm.projection || SIM.meta.projection).toUpperCase()} · ` +
+    `embedding ${embLabel(name)}`;
+}
 let simHighlight = [];      // ids de los similares dibujados ahora mismo
 /* Selección en dos niveles.
  *
@@ -1210,8 +1266,10 @@ function applyColor(hex, persist) {
     const ramp = ["interpolate", ["linear"], ["heatmap-density"], ...RAMP.flat()];
     MAP.setPaintProperty("crimes-points", "circle-color", s.base);
     MAP.setPaintProperty("crimes-heat", "heatmap-color", ramp);
-    if (MAP.getLayer("relief-3d"))
-      MAP.setPaintProperty("relief-3d", "fill-extrusion-color", reliefRamp());
+    // La rampa del relieve es una textura: se marca sucia y el próximo
+    // fotograma la rehace con el color nuevo.
+    relDirty.ramp = true;
+    if (relOn) MAP.triggerRepaint();
     if (MAP.getLayer("nodes-points")) {
       MAP.setPaintProperty("nodes-points", "circle-color", s.base);
       MAP.setPaintProperty("nodes-heat", "heatmap-color", ramp);
@@ -1477,7 +1535,7 @@ function refreshNodes(immediate) {
   if (immediate) run(); else nodeTimer = setTimeout(run, 70);
 }
 
-/* ═══ Relieve 3D · el campo de densidad en volumen ═══════════════════
+/* ═══ Relieve 3D · superficie continua del campo de densidad ═════════
  *
  * El mapa de calor y el relieve enseñan EXACTAMENTE el mismo campo: la densidad
  * gaussiana de §4.1. Cambia el canal, color plano frente a altura, y la altura
@@ -1487,18 +1545,41 @@ function refreshNodes(immediate) {
  *
  * La σ no es decorativa: es `sigma_m` del propio pipeline —120 m—, así que los
  * cerros tienen el ancho real del kernel con el que se extrajeron los hotspots.
- * Se está mirando la superficie sobre la que se buscaron los máximos.
  *
- * Y una diferencia que hay que decir: el pipeline mide distancias GEODÉSICAS
- * sobre la red vial; aquí se miden en línea recta. Al otro lado de un río o de
- * una autopista sin cruce, el pipeline no propaga densidad y esta vista sí.
- * Es una aproximación para mirar, no el campo con el que se calculó nada.
+ * ## Por qué una malla propia y no `fill-extrusion`
+ *
+ * `fill-extrusion` solo sabe levantar prismas: cada celda es un cubo de altura
+ * constante, con paredes verticales entre vecinas. Una gaussiana no tiene
+ * escalones. Aquí se dibuja una **malla de triángulos** con la altura en los
+ * vértices, así que la superficie interpola entre muestras y la normal sale del
+ * gradiente del campo: se ve una colina, no una escalera.
+ *
+ * ## Por qué la rejilla es fija y no depende de la cámara
+ *
+ * La versión anterior construía la rejilla sobre la vista actual: al mover la
+ * cámara cambiaban el tamaño de celda, la extensión y la altura del pico, y el
+ * terreno se deformaba bajo el cursor. Un campo escalar no depende de dónde se
+ * mire. Ahora la malla se calcula UNA vez sobre el bbox de los datos, con celda
+ * en metros y altura en metros, y la cámara solo la mira: girar, inclinar o
+ * acercarse no toca un solo vértice.
+ *
+ * Consecuencia buena: `moveend` ya no reconstruye nada. La malla solo se rehace
+ * cuando cambia el filtro, que es lo único que cambia el campo.
+ *
+ * ## Diferencia honesta con el pipeline
+ *
+ * El pipeline mide distancias GEODÉSICAS sobre la red vial; aquí se miden en
+ * línea recta. Al otro lado de un río o de una autopista sin cruce, el pipeline
+ * no propaga densidad y esta vista sí. Es una aproximación para mirar, no el
+ * campo con el que se calculó nada.
  */
 
-const REL_COLS = 120;         // celdas a lo ancho de la vista, antes de «detalle»
-const REL_MAX_CELLS = 30000;  // techo duro de polígonos por fotograma
-const REL_FLOOR = 0.04;       // por debajo no se dibuja: evita una losa plana
-let relOn = false, relTimer = null, relCells = 0;
+const REL_MAX_V = 550000;    // techo de vértices; por encima se engorda la celda
+const REL_FLOOR = 0.02;      // por debajo no se teje: deja ver el mapa base
+let relOn = false, relTimer = null;
+let rel = null;              // malla en CPU
+let relGL = null;            // recursos de GPU
+let relDirty = { geom: true, field: true, mask: true, ramp: true };
 
 /** La σ del pipeline; 120 m si no hay artefacto de hotspots. */
 function relSigma() {
@@ -1506,61 +1587,70 @@ function relSigma() {
   return Number.isFinite(s) && s > 0 ? s : 120;
 }
 
-/** La rampa del calor, sin su primera parada.
- *  En un volumen sólido la transparencia no dice «poco», dice «cristal». */
-function reliefRamp() {
-  const e = ["interpolate", ["linear"], ["get", "v"]];
-  for (const [t, c] of RAMP.slice(1)) e.push(t, c);
-  return e;
-}
+/* ─── 1 · geometría: se calcula una vez y la cámara no la toca ─────── */
 
-/**
- * Rejilla + convolución gaussiana separable sobre la vista actual.
- *
- * Separable porque una gaussiana 2D es el producto de dos 1D: dos pasadas de
- * (2r+1) taps en vez de una de (2r+1)². Con 30 000 celdas y r = 12 son ~1,5 M
- * multiplicaciones, un par de milisegundos.
- */
-function buildReliefGeoJSON() {
-  const b = MAP.getBounds();
+function relBuildGeometry() {
   const sigma = relSigma();
-  const latC = (b.getSouth() + b.getNorth()) / 2;
-  const mLat = 110574, mLon = 111320 * Math.cos(latC * Math.PI / 180);
+  const [la0, lo0, la1, lo1] = META.bbox;
+  const mLat = 110574, mLon = 111320 * Math.cos((la0 + la1) / 2 * Math.PI / 180);
 
-  // El ancho se mide a la escala del CENTRO, no con el bbox: con la cámara
-  // inclinada el bbox se dispara hacia el horizonte y la resolución se
-  // hundiría justo cuando se está usando la vista en 3D.
-  const mpp = 156543.03392 * Math.cos(MAP.getCenter().lat * Math.PI / 180) /
-              Math.pow(2, MAP.getZoom());
-  const viewM = MAP.getCanvas().clientWidth * mpp;
-
-  const cols = Math.max(48, Math.round(REL_COLS * mult(cfg.relres)));
-  // Banda [σ/4, σ]. Por debajo de σ/4 la gaussiana ya no varía dentro de la
-  // celda: más celdas no añaden información, solo polígonos. Por encima de σ
-  // el kernel no llega ni a tres muestras y los cerros salen a cuadros.
-  let cell = Math.min(sigma, Math.max(viewM / cols, sigma / 4));
-
-  // Margen de 3σ alrededor de la vista: sin él el kernel se corta en el borde
-  // y aparece un escalón donde no lo hay. Y el bbox se acota a 3× el ancho de
-  // la vista, por lo mismo que arriba.
+  // Banda [σ/3, σ]. Por debajo de σ/2 el campo ya no tiene detalle que enseñar
+  // —la gaussiana está muestreada de sobra—, así que más vértices no añaden
+  // información. Por encima de σ el kernel no llega a tres muestras.
+  let cell = Math.min(sigma, Math.max(sigma / 3, (sigma / 2) / mult(cfg.relres)));
   const pad = 3 * sigma;
-  const cLon = (b.getEast() + b.getWest()) / 2, cLat = (b.getNorth() + b.getSouth()) / 2;
-  const hLon = Math.min((b.getEast() - b.getWest()) / 2, 1.5 * viewM / mLon);
-  const hLat = Math.min((b.getNorth() - b.getSouth()) / 2, 1.5 * viewM / mLat);
-  const lat0 = cLat - hLat - pad / mLat, lat1 = cLat + hLat + pad / mLat;
-  const lon0 = cLon - hLon - pad / mLon, lon1 = cLon + hLon + pad / mLon;
+  const lat0 = la0 - pad / mLat, lat1 = la1 + pad / mLat;
+  const lon0 = lo0 - pad / mLon, lon1 = lo1 + pad / mLon;
 
   let nx, ny;
   for (;;) {
-    nx = Math.ceil((lon1 - lon0) * mLon / cell);
-    ny = Math.ceil((lat1 - lat0) * mLat / cell);
-    if (nx * ny <= REL_MAX_CELLS || cell > 4000) break;
-    cell *= 1.3;
+    nx = Math.ceil((lon1 - lon0) * mLon / cell) + 1;
+    ny = Math.ceil((lat1 - lat0) * mLat / cell) + 1;
+    if (nx * ny <= REL_MAX_V) break;
+    cell *= 1.15;
   }
-  const dLat = cell / mLat, dLon = cell / mLon;
+  const dLon = cell / mLon, dLat = cell / mLat;
+  const n = nx * ny;
 
-  // 1 · reparto de la carga por nodo en la rejilla
-  const g = new Float32Array(nx * ny);
+  // Posiciones en coordenadas Mercator, que es lo que espera la matriz que
+  // MapLibre pasa al render. Estáticas: solo cambian si cambia la celda.
+  const pos = new Float32Array(n * 2);
+  const MC = maplibregl.MercatorCoordinate;
+  for (let j = 0; j < ny; j++) {
+    const lat = lat0 + j * dLat;
+    for (let i = 0; i < nx; i++) {
+      const m = MC.fromLngLat({ lng: lon0 + i * dLon, lat }, 0);
+      const k = (j * nx + i) * 2;
+      pos[k] = m.x; pos[k + 1] = m.y;
+    }
+  }
+  // Metros → unidades Mercator, tomado en el centro del área. La misma
+  // constante para toda la malla: si variara por fila, las alturas dejarían de
+  // ser comparables entre el norte y el sur de la ciudad.
+  const mUnit = MC.fromLngLat({ lng: (lo0 + lo1) / 2, lat: (la0 + la1) / 2 }, 0)
+                  .meterInMercatorCoordinateUnits();
+
+  rel = {
+    nx, ny, cell, lat0, lon0, dLat, dLon, mUnit, sigma, pos,
+    h: new Float32Array(n),
+    grad: new Float32Array(n * 2),
+    mask: new Float32Array(n),
+    idx: new Uint32Array((nx - 1) * (ny - 1) * 6),
+    count: 0
+  };
+  relDirty.geom = relDirty.field = relDirty.mask = true;
+}
+
+/* ─── 2 · campo: reparto + convolución gaussiana separable ─────────── */
+
+function relUpdateField() {
+  if (!rel) return;
+  const { nx, ny, cell, lat0, lon0, dLat, dLon, sigma } = rel;
+  const n = nx * ny;
+  const g = new Float32Array(n);
+
+  // La MISMA carga por nodo que alimenta la vista de nodos: las dos no pueden
+  // desincronizarse porque salen de la misma función.
   computeNodeCounts();
   const [a0, o0, a1, o1] = SNAP.bbox, Q = SNAP.quant_max;
   const kA = (a1 - a0) / Q, kO = (o1 - o0) / Q;
@@ -1568,13 +1658,14 @@ function buildReliefGeoJSON() {
   for (let j = 0; j < SNAP.nodes; j++) {
     const w = nodeCounts[j];
     if (!w) continue;
-    const ix = ((o0 + qo[j] * kO - lon0) / dLon) | 0;
-    const iy = ((a0 + ql[j] * kA - lat0) / dLat) | 0;
+    const ix = Math.round((o0 + qo[j] * kO - lon0) / dLon);
+    const iy = Math.round((a0 + ql[j] * kA - lat0) / dLat);
     if (ix >= 0 && ix < nx && iy >= 0 && iy < ny) g[iy * nx + ix] += w;
   }
 
-  // 2 · convolución gaussiana, una pasada por eje
-  const r = Math.min(28, Math.ceil(3 * sigma / cell));
+  // Separable: una gaussiana 2D es el producto de dos 1D, así que son dos
+  // pasadas de (2r+1) muestras en vez de una de (2r+1)².
+  const r = Math.min(24, Math.ceil(3 * sigma / cell));
   const k = new Float32Array(2 * r + 1);
   let ks = 0;
   for (let i = -r; i <= r; i++) {
@@ -1583,7 +1674,7 @@ function buildReliefGeoJSON() {
   }
   for (let i = 0; i < k.length; i++) k[i] /= ks;
 
-  const tmp = new Float32Array(nx * ny);
+  const tmp = new Float32Array(n);
   for (let y = 0; y < ny; y++) {
     const row = y * nx;
     for (let x = 0; x < nx; x++) {
@@ -1606,61 +1697,319 @@ function buildReliefGeoJSON() {
     }
   }
 
-  // 3 · polígonos, solo dentro de la vista: el margen estaba para que el
-  //     kernel no se cortara, no para dibujarlo.
   let max = 0;
-  for (let i = 0; i < g.length; i++) if (g[i] > max) max = g[i];
-  const features = [];
-  if (max > 0) {
-    const top = viewM / 11 * mult(cfg.relh);   // altura del pico, en metros
-    const x0 = Math.max(0, Math.floor((b.getWest() - lon0) / dLon) - 1);
-    const x1 = Math.min(nx, Math.ceil((b.getEast() - lon0) / dLon) + 1);
-    const y0 = Math.max(0, Math.floor((b.getSouth() - lat0) / dLat) - 1);
-    const y1 = Math.min(ny, Math.ceil((b.getNorth() - lat0) / dLat) + 1);
-    for (let y = y0; y < y1; y++) {
-      const la = lat0 + y * dLat, lb = la + dLat;
-      for (let x = x0; x < x1; x++) {
-        const v = g[y * nx + x] / max;
-        if (v < REL_FLOOR) continue;
-        const lo = lon0 + x * dLon, lc = lo + dLon;
-        features.push({
-          type: "Feature",
-          geometry: { type: "Polygon",
-                      coordinates: [[[lo, la], [lc, la], [lc, lb], [lo, lb], [lo, la]]] },
-          properties: { v, h: v * top }
-        });
+  for (let i = 0; i < n; i++) if (g[i] > max) max = g[i];
+  const inv = max > 0 ? 1 / max : 0;
+  const h = rel.h;
+  for (let i = 0; i < n; i++) h[i] = g[i] * inv;
+
+  // Gradiente por diferencias centrales, en «altura normalizada por celda».
+  // La normal se arma con él en el vertex shader, así que el sombreado sigue
+  // la pendiente real del campo y no la cara de un prisma.
+  const grad = rel.grad;
+  for (let y = 0; y < ny; y++) {
+    for (let x = 0; x < nx; x++) {
+      const i = y * nx + x;
+      const xa = x > 0 ? h[i - 1] : h[i], xb = x < nx - 1 ? h[i + 1] : h[i];
+      const ya = y > 0 ? h[i - nx] : h[i], yb = y < ny - 1 ? h[i + nx] : h[i];
+      grad[i * 2] = (xb - xa) * 0.5;
+      grad[i * 2 + 1] = (yb - ya) * 0.5;
+    }
+  }
+
+  // Solo se tejen los cuadros con algo dentro: donde el campo es nada no hay
+  // triángulos y se ve el mapa base, no una losa a cota cero.
+  const idx = rel.idx;
+  let c = 0;
+  for (let y = 0; y < ny - 1; y++) {
+    for (let x = 0; x < nx - 1; x++) {
+      const a = y * nx + x, b = a + 1, d = a + nx, e = d + 1;
+      if (h[a] < REL_FLOOR && h[b] < REL_FLOOR &&
+          h[d] < REL_FLOOR && h[e] < REL_FLOOR) continue;
+      idx[c++] = a; idx[c++] = b; idx[c++] = d;
+      idx[c++] = b; idx[c++] = e; idx[c++] = d;
+    }
+  }
+  rel.count = c;
+  relDirty.field = true;
+}
+
+/* ─── 3 · máscara de las zonas en foco ─────────────────────────────── */
+
+/**
+ * Marca los vértices que caen dentro de los subgrafos seleccionados.
+ *
+ * Se usa el MISMO polígono que dibuja el mapa —la envolvente con su buffer de
+ * §5.6—, no una aproximación: si el relieve marcara un área y el mapa otra, el
+ * usuario vería dos zonas distintas para el mismo subgrafo.
+ *
+ * Solo se prueban los vértices del bbox de cada polígono, así que el coste va
+ * con el área en foco y no con la malla entera.
+ */
+function relUpdateMask() {
+  if (!rel) return;
+  const { nx, ny, lat0, lon0, dLat, dLon, mask } = rel;
+  mask.fill(0);
+  const ids = new Set(focusIds);
+  if (ids.size && HS) {
+    for (const f of HS.features) {
+      if (f.properties.kind !== "area" || !ids.has(f.properties.id)) continue;
+      const ring = f.geometry.coordinates[0];
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const p of ring) {
+        if (p[0] < x0) x0 = p[0];
+        if (p[0] > x1) x1 = p[0];
+        if (p[1] < y0) y0 = p[1];
+        if (p[1] > y1) y1 = p[1];
+      }
+      const i0 = Math.max(0, Math.floor((x0 - lon0) / dLon));
+      const i1 = Math.min(nx - 1, Math.ceil((x1 - lon0) / dLon));
+      const j0 = Math.max(0, Math.floor((y0 - lat0) / dLat));
+      const j1 = Math.min(ny - 1, Math.ceil((y1 - lat0) / dLat));
+      for (let j = j0; j <= j1; j++) {
+        const la = lat0 + j * dLat;
+        for (let i = i0; i <= i1; i++) {
+          if (mask[j * nx + i]) continue;
+          if (pointInPolygon([lon0 + i * dLon, la], ring)) mask[j * nx + i] = 1;
+        }
       }
     }
   }
-  relCells = features.length;
-  return { type: "FeatureCollection", features };
+  relDirty.mask = true;
 }
 
-/** Recalcula el relieve. Con freno: girar la cámara dispara `moveend` a menudo. */
+/* ─── 4 · capa personalizada de WebGL ──────────────────────────────── */
+
+const REL_VS = `
+attribute vec2 aPos;
+attribute float aH;
+attribute vec2 aGrad;
+attribute float aMask;
+uniform mat4 uMatrix;
+uniform float uZ;        // altura del pico, en unidades Mercator
+uniform float uSlope;    // pendiente relativa, para la normal
+varying float vH;
+varying float vShade;
+varying float vMask;
+void main() {
+  vH = aH;
+  vMask = aMask;
+  // En Mercator la y crece hacia el sur; la luz viene del noroeste y de arriba.
+  vec3 nrm = normalize(vec3(-aGrad.x * uSlope, -aGrad.y * uSlope, 1.0));
+  vec3 lum = normalize(vec3(-0.42, 0.58, 0.70));
+  vShade = 0.58 + 0.42 * max(dot(nrm, lum), 0.0);
+  gl_Position = uMatrix * vec4(aPos, aH * uZ, 1.0);
+}`;
+
+const REL_FS = `
+precision mediump float;
+uniform sampler2D uRamp;
+uniform float uHasSel;
+varying float vH;
+varying float vShade;
+varying float vMask;
+void main() {
+  vec3 col = texture2D(uRamp, vec2(clamp(vH, 0.0, 1.0), 0.5)).rgb * vShade;
+  // Con algo en foco, el resto del terreno pierde el color pero conserva el
+  // relieve: se sigue leyendo la forma, y la zona seleccionada es la única que
+  // conserva la rampa de densidad.
+  if (uHasSel > 0.5) {
+    float g = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(vec3(mix(g, 0.74, 0.55)), col, vMask);
+  }
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+function relCompile(gl, type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+    throw new Error("shader: " + gl.getShaderInfoLog(s));
+  return s;
+}
+
+/** Rampa del calor como textura 1D de 256 pasos. Se rehace si cambia el color. */
+function relRampTexture(gl, tex) {
+  const N = 256, px = new Uint8Array(N * 4);
+  const stops = RAMP.slice(1);              // la primera parada es transparente
+  const scale = d3.scaleLinear()
+    .domain(stops.map(s => s[0]))
+    .range(stops.map(s => s[1]))
+    .interpolate(d3.interpolateLab)
+    .clamp(true);
+  for (let i = 0; i < N; i++) {
+    const c = d3.rgb(scale(i / (N - 1)));
+    px[i * 4] = c.r; px[i * 4 + 1] = c.g; px[i * 4 + 2] = c.b; px[i * 4 + 3] = 255;
+  }
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, N, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+const reliefLayer = {
+  id: "relief-3d",
+  type: "custom",
+  renderingMode: "3d",
+
+  onAdd(map, gl) {
+    const prog = gl.createProgram();
+    gl.attachShader(prog, relCompile(gl, gl.VERTEX_SHADER, REL_VS));
+    gl.attachShader(prog, relCompile(gl, gl.FRAGMENT_SHADER, REL_FS));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+      throw new Error("programa: " + gl.getProgramInfoLog(prog));
+    relGL = {
+      prog,
+      a: { pos: gl.getAttribLocation(prog, "aPos"),
+           h: gl.getAttribLocation(prog, "aH"),
+           grad: gl.getAttribLocation(prog, "aGrad"),
+           mask: gl.getAttribLocation(prog, "aMask") },
+      u: { matrix: gl.getUniformLocation(prog, "uMatrix"),
+           z: gl.getUniformLocation(prog, "uZ"),
+           slope: gl.getUniformLocation(prog, "uSlope"),
+           ramp: gl.getUniformLocation(prog, "uRamp"),
+           hasSel: gl.getUniformLocation(prog, "uHasSel") },
+      bPos: gl.createBuffer(), bH: gl.createBuffer(),
+      bGrad: gl.createBuffer(), bMask: gl.createBuffer(),
+      bIdx: gl.createBuffer(), tex: gl.createTexture(),
+      // La malla pasa de 65 535 vértices, así que los índices tienen que ser de
+      // 32 bits. En WebGL2 lo son de serie; en WebGL1 hacen falta por extensión
+      // y si no está no se dibuja nada, en vez de dibujar basura.
+      u32: (typeof WebGL2RenderingContext !== "undefined" &&
+            gl instanceof WebGL2RenderingContext) ||
+           !!gl.getExtension("OES_element_index_uint")
+    };
+    if (!relGL.u32)
+      console.warn("Sin índices de 32 bits: el relieve 3D no se dibujará.");
+    relDirty = { geom: true, field: true, mask: true, ramp: true };
+  },
+
+  onRemove(map, gl) {
+    if (!relGL) return;
+    for (const b of ["bPos", "bH", "bGrad", "bMask", "bIdx"]) gl.deleteBuffer(relGL[b]);
+    gl.deleteTexture(relGL.tex);
+    gl.deleteProgram(relGL.prog);
+    relGL = null;
+  },
+
+  render(gl, matrix) {
+    if (!relOn || !relGL || !relGL.u32 || !rel || !rel.count) return;
+    const G = relGL;
+    // En WebGL2 MapLibre deja un VAO enlazado; tocar los atributos sin
+    // soltarlo escribiría dentro de SU estado.
+    if (gl.bindVertexArray) gl.bindVertexArray(null);
+
+    // Las subidas van aquí y no donde se calcula el campo: el contexto de GL
+    // solo es válido dentro del render, y así una ráfaga de cambios de filtro
+    // sube una vez y no una por cambio.
+    if (relDirty.ramp) { relRampTexture(gl, G.tex); relDirty.ramp = false; }
+    if (relDirty.geom) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, G.bPos);
+      gl.bufferData(gl.ARRAY_BUFFER, rel.pos, gl.STATIC_DRAW);
+      relDirty.geom = false;
+    }
+    if (relDirty.field) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, G.bH);
+      gl.bufferData(gl.ARRAY_BUFFER, rel.h, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, G.bGrad);
+      gl.bufferData(gl.ARRAY_BUFFER, rel.grad, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.bIdx);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
+                    rel.idx.subarray(0, rel.count), gl.DYNAMIC_DRAW);
+      relDirty.field = false;
+    }
+    if (relDirty.mask) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, G.bMask);
+      gl.bufferData(gl.ARRAY_BUFFER, rel.mask, gl.DYNAMIC_DRAW);
+      relDirty.mask = false;
+    }
+
+    gl.useProgram(G.prog);
+    const bind = (buf, loc, size) => {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
+    };
+    bind(G.bPos, G.a.pos, 2);
+    bind(G.bH, G.a.h, 1);
+    bind(G.bGrad, G.a.grad, 2);
+    bind(G.bMask, G.a.mask, 1);
+
+    // Altura del pico en METROS, fija: no depende del zoom ni de la cámara.
+    // 10σ = 1 200 m por defecto, del orden del ancho de una campana,
+    // así que la pendiente que se ve es la de la gaussiana y no una caricatura.
+    const topM = 10 * rel.sigma * mult(cfg.relh);
+    gl.uniformMatrix4fv(G.u.matrix, false, matrix);
+    gl.uniform1f(G.u.z, topM * rel.mUnit);
+    gl.uniform1f(G.u.slope, topM / rel.cell);
+    gl.uniform1f(G.u.hasSel, focusIds.length ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, G.tex);
+    gl.uniform1i(G.u.ramp, 0);
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(true);          // MapLibre lo deja cerrado en algunas pasadas
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.BLEND);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.bIdx);
+    gl.drawElements(gl.TRIANGLES, rel.count, gl.UNSIGNED_INT, 0);
+
+    // Dejar atributos habilitados en el VAO por defecto corrompe los dibujos
+    // que vengan detrás: son estado global, no nuestro.
+    for (const loc of [G.a.pos, G.a.h, G.a.grad, G.a.mask])
+      if (loc >= 0) gl.disableVertexAttribArray(loc);
+  }
+};
+
+/* ─── 5 · gobierno ─────────────────────────────────────────────────── */
+
+/** Rehace el campo. Con freno: arrastrar el selector de meses dispara uno por
+ *  fotograma, y aquí cada uno son cientos de miles de vértices. */
 function refreshRelief(immediate) {
-  if (!relOn || !MAP || !MAP.getSource("relief")) return;
+  if (!relOn || !rel) return;
   clearTimeout(relTimer);
   const run = () => {
-    MAP.getSource("relief").setData(buildReliefGeoJSON());
-    $("s-relief").textContent = fmtEs(relCells);
+    relUpdateField();
+    relUpdateMask();
+    $("s-relief").textContent = fmtEs(Math.round(rel.count / 3));
+    MAP.triggerRepaint();
   };
-  if (immediate) run(); else relTimer = setTimeout(run, 120);
+  if (immediate) run(); else relTimer = setTimeout(run, 140);
+}
+
+/** Solo la máscara: cambiar el foco no cambia el campo. */
+function refreshReliefMask() {
+  if (!relOn || !rel) return;
+  relUpdateMask();
+  MAP.triggerRepaint();
 }
 
 function setRelief(on) {
   relOn = !!on && !!(MAP && MAP.getLayer("relief-3d"));
-  if (MAP && MAP.getLayer("relief-3d"))
-    MAP.setLayoutProperty("relief-3d", "visibility", relOn ? "visible" : "none");
   $("readout-relief").hidden = !relOn;
   if (relOn) {
+    if (!rel) relBuildGeometry();
     $("s-relsigma").textContent = relSigma() + " m";
     refreshRelief(true);
     // Un relieve visto a plomo es un mapa de calor con peor rampa: si la cámara
     // está vertical, se inclina sola la primera vez. Después manda el usuario.
     if (MAP.getPitch() < 15)
-      MAP.easeTo({ pitch: 55, duration: 700, padding: mapPadding() });
+      MAP.easeTo({ pitch: 58, duration: 700, padding: mapPadding() });
   }
+  if (MAP) MAP.triggerRepaint();
   try { localStorage.setItem("showRelief", relOn ? "1" : "0"); } catch (e) {}
+}
+
+/** El «detalle» cambia la malla entera, no solo las alturas. */
+function relRebuild() {
+  if (!relOn) return;
+  relBuildGeometry();
+  refreshRelief(true);
 }
 
 /** GeoJSON de los POIs. Son 27 000, cabe hacerlo de una sentada. */
@@ -1783,7 +2132,14 @@ async function boot() {
   if (!SWEEP) console.warn("Sin data/param_sweep.json: ejecuta `crimepipe calibrate`.");
   if (!EVAL) console.warn("Sin data/evaluation.json: ejecuta `crimepipe evaluate`.");
   if (!SIM) console.warn("Sin data/similarity.json: ejecuta `crimepipe features`.");
-  if (SIM) simIndex = new Map(SIM.hotspots.map(h => [h.id, h]));
+  if (SIM) {
+    simIndex = new Map(SIM.hotspots.map(h => [h.id, h]));
+    embMethod = SIM.meta.embedding_method;
+    try {
+      const saved = localStorage.getItem("embMethod");
+      if (saved && embMethods().includes(saved)) embMethod = saved;
+    } catch (e) {}
+  }
 
   ARR = views(buffer, META.n);
 
@@ -2099,28 +2455,16 @@ function setupLayers(geojson) {
     });
   }
 
-  // El relieve, el último de todos: es geometría con profundidad, y dejar que
-  // los puntos planos se pinten sobre los cerros rompería la lectura en 3D.
-  if (SNAP) {
-    // Sin recortar `buffer` ni `tolerance`, al contrario que los puntos: una
-    // extrusión que cruza el borde de una tesela necesita margen o le faltan
-    // las paredes laterales.
-    MAP.addSource("relief", {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: [] }
-    });
-    MAP.addLayer({
-      id: "relief-3d", type: "fill-extrusion", source: "relief",
-      layout: { visibility: "none" },
-      paint: {
-        "fill-extrusion-color": reliefRamp(),
-        "fill-extrusion-height": ["get", "h"],
-        "fill-extrusion-base": 0,
-        "fill-extrusion-opacity": 0.95
-      }
-    });
-    MAP.on("moveend", () => refreshRelief());
-  }
+  // El relieve, el último de todos: es geometría con profundidad y escribe en
+  // el buffer de profundidad, así que dejar que los puntos planos se pinten
+  // sobre los cerros rompería la lectura en 3D.
+  //
+  // Capa `custom`: MapLibre nos pasa el contexto de WebGL y la matriz de
+  // proyección, y dibujamos la malla nosotros. No hay tipo de capa de estilo
+  // que sepa dibujar una superficie continua; `fill-extrusion` solo levanta
+  // prismas. No lleva `visibility`: el propio `render` no dibuja nada mientras
+  // el relieve esté apagado.
+  if (SNAP) MAP.addLayer(reliefLayer);
 
   // Encuadra el bbox real de los datos: si latitud y longitud estuvieran
   // invertidas al leer el CSV, el encuadre saltaría fuera de Chicago.
@@ -2291,11 +2635,14 @@ function setFocus(ids, source) {
   syncFocusUI();
   if (MAP && MAP.getLayer("hs-fill")) applyFilters();
   setSimHighlight(ids.filter(id => id !== hsSel));
+  // El relieve marca las mismas zonas que el mapa: cambiar el foco no cambia
+  // el campo, solo qué parte de él conserva el color.
+  refreshReliefMask();
 }
 
 /** El foco natural de un ancla: él mismo y sus parecidos. */
 function focusOfRef(refId) {
-  const rec = refId && simIndex.get(refId);
+  const rec = refId && embOf(refId);
   if (!rec) return refId ? [refId] : [];
   const list = simDistinct ? rec.similar_distinct : rec.similar;
   return [refId, ...list.map(s => s.id)];
@@ -3287,6 +3634,8 @@ function wireUI() {
 
   buildEmbedDrawer();
   if (SIM) {
+    if ($("embed-method"))
+      $("embed-method").addEventListener("change", e => setEmbMethod(e.target.value));
     $("embed-lasso").addEventListener("click", () => {
       lassoOn = !lassoOn;
       $("embed-lasso").setAttribute("aria-pressed", String(lassoOn));
@@ -3377,8 +3726,10 @@ function wireUI() {
   bind("c-nsize", "nsize", "o-nsize", applyNodes);
   bind("c-hint", "hint", "o-hint", applyHeat);
   bind("c-hrad", "hrad", "o-hrad", applyHeat);
-  bind("c-relh", "relh", "o-relh", () => refreshRelief(true));
-  bind("c-relres", "relres", "o-relres", () => refreshRelief());
+  // La altura es un uniform: basta con repintar. El detalle cambia el número
+  // de vértices, así que rehace la malla.
+  bind("c-relh", "relh", "o-relh", () => MAP && MAP.triggerRepaint());
+  bind("c-relres", "relres", "o-relres", relRebuild);
   bind("c-chsize", "chsize", "o-chsize", redrawCharts);
   bind("c-chdot", "chdot", "o-chdot", redrawCharts);
 
@@ -3870,6 +4221,16 @@ function buildSimTab() {
         los nodos: dos subgrafos isomorfos producen el mismo documento se numeren
         como se numeren, y sus vectores salen a coseno &gt; 0.999.
       </div>
+      ${m.methods && m.methods.length > 1 ? `<div class="note">
+        <b>Comparación de embeddings.</b> Esta corrida trae además
+        ${m.methods.filter(k => k !== m.embedding_method).map(k => `<code class="c">${k}</code>`).join(" y ")}:
+        <code class="c">wwl</code> es Wasserstein Weisfeiler–Lehman (Togninalli
+        et&nbsp;al., NeurIPS&nbsp;2019) —transporte óptimo entre las nubes de
+        etiquetas WL en vez de comparar histogramas—; <code class="c">scattering</code>
+        es la Geometric Scattering Transform (Gao, Wolf &amp; Hirn, ICML&nbsp;2019)
+        —wavelets de difusión multiescala sin entrenar—. El selector del
+        <b>espacio de embeddings</b> conmuta cuál gobierna el scatter y los parecidos.
+      </div>` : ""}
     </div>
 
     <div class="group">
@@ -3905,6 +4266,12 @@ function buildSimTab() {
  * Va en su propio cajón lateral y no en una columna fija: en un dashboard de
  * mapa, el mapa es el sujeto. Todo lo demás aparece cuando se pide y se quita
  * cuando estorba, que es lo que ya hacen la configuración y la comparación.
+ *
+ * Modo comparativo: `crimepipe features` puede dejar en `similarity.json` varios
+ * métodos de embedding (graph2vec, WWL, scattering). El selector del cajón
+ * conmuta cuál gobierna el scatter, la lista de parecidos y el resaltado del
+ * mapa. `embOf` (arriba, junto al resto del estado) es el único punto donde se
+ * lee el método activo.
  */
 
 function buildEmbedDrawer() {
@@ -3915,10 +4282,19 @@ function buildEmbedDrawer() {
     return;
   }
   const m = SIM.meta;
+  const methods = embMethods();
   $("embed-sub").textContent =
-    `${m.n} subgrafos · ${m.projection.toUpperCase()} sobre ${m.fused_dims} dims`;
+    `${m.n} subgrafos · ${m.projection.toUpperCase()} · embedding ${embLabel(embMethod || m.embedding_method)}`;
+  const methodPicker = methods.length > 1 ? `
+      <label class="embmethod">Embedding
+        <select id="embed-method">
+          ${methods.map(k => `<option value="${k}"${k === embMethod ? " selected" : ""}>${embLabel(k)}</option>`).join("")}
+        </select>
+      </label>
+      <p class="simsub" id="embed-method-note">Conmuta qué embedding gobierna el scatter, los parecidos y el resaltado. El coseno se calcula sobre forma + jerarquía vial + embedding; nunca sobre crimen (§5.1).</p>` : "";
   $("embed-body").innerHTML = `
     <div class="group">
+      ${methodPicker}
       <div class="simhead" style="margin-bottom:6px">
         <h4>Proyección ${m.projection.toUpperCase()}</h4>
         <div class="chips">
@@ -3956,7 +4332,7 @@ function buildEmbedDrawer() {
  */
 function drawEmbedList() {
   if (!SIM || !$("embed-list")) return;
-  const ref = hsRef && simIndex.get(hsRef);
+  const ref = hsRef && embOf(hsRef);
   const bySim = focusSource === "similares" && !!ref;
   const empty = !focusIds.length;
 
@@ -3967,7 +4343,7 @@ function drawEmbedList() {
     : bySim
       ? (focusIds.length > 1
           ? `Coseno sobre forma, jerarquía vial y embedding ` +
-            `<b>${SIM.meta.embedding_method}</b>. Sin datos de crimen (§5.1).`
+            `<b>${embLabel(embMethod || SIM.meta.embedding_method)}</b>. Sin datos de crimen (§5.1).`
           : `Ningún subgrafo de otra zona entre los ${SIM.meta.n} del corpus.`)
       : `${focusIds.length} subgrafos escogidos por ${focusSource}.`;
 
@@ -4035,7 +4411,7 @@ function drawEmbeddingScatter() {
   simDrawn = true;
 
   const W = 420, H = Math.round(300 * mult(cfg.chsize)), P = 10;
-  const pts = SIM.hotspots;
+  const pts = SIM.hotspots.map(h => embOf(h.id) || h);
   const svg = d3.select("#ch-embed").attr("viewBox", `0 0 ${W} ${H}`).attr("height", H);
   svg.selectAll("*").remove();
 
