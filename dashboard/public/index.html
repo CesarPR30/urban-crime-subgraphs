@@ -347,6 +347,14 @@
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
     cursor: pointer;
   }
+  .goto { display: flex; gap: 6px; margin: 6px 0 4px; }
+  .goto input {
+    flex: 1; min-width: 0; padding: 5px 8px; font: inherit; font-size: 11.5px;
+    color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .goto input:focus { outline: none; border-color: var(--hs); }
+  .hint.bad { color: #c1121f; }
 
   /* ─── Cajón del espacio de embeddings ─────────────────────────────── */
   .clusters { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 4px; }
@@ -1110,6 +1118,7 @@ let poiOn = false;
 let simIndex = new Map();   // id de hotspot -> su registro de similitud
 let simDistinct = true;     // excluir de la lista el mismo lugar en otro mes
 let embMethod = null;       // método de embedding activo en el cajón (comparativo)
+let gotoMarker = null;      // pin de «ir a una coordenada» (Información técnica → Evaluación)
 
 /* ─── Embeddings comparativos ────────────────────────────────────────
  * `similarity.json` puede traer varios métodos (graph2vec, WWL, scattering).
@@ -4606,11 +4615,98 @@ function snapInfoHTML() {
 
 let evalDrawn = false;
 
+/* ─── Ir a una coordenada ────────────────────────────────────────────
+ *
+ * Las figuras de subgrafos rotulan cada panel con su centroide (°N, °O). Este
+ * campo lleva el mapa justo ahí y deja un pin, para localizar en el dashboard
+ * el subgrafo que se está mirando en la imagen.
+ */
+
+function parseLatLon(raw) {
+  if (!raw) return null;
+  const re = /(-?\d+(?:\.\d+)?)\s*°?\s*([NSEWO])?/gi;
+  const found = [];
+  let m;
+  while ((m = re.exec(raw)) && found.length < 2) {
+    if (!m[1]) { if (m.index === re.lastIndex) re.lastIndex++; continue; }
+    found.push({ v: parseFloat(m[1]), h: (m[2] || "").toUpperCase() });
+  }
+  if (found.length < 2) return null;
+  let [a, b] = found;
+  const isLon = x => x.h === "E" || x.h === "W" || x.h === "O";
+  const isLat = x => x.h === "N" || x.h === "S";
+  if (isLon(a) || isLat(b)) { const t = a; a = b; b = t; }   // venían como lon,lat
+  let lat = a.v, lon = b.v;
+  if (a.h === "S") lat = -Math.abs(lat); else if (a.h === "N") lat = Math.abs(lat);
+  if (b.h === "W" || b.h === "O") lon = -Math.abs(lon); else if (b.h === "E") lon = Math.abs(lon);
+  // Sin letras de hemisferio, un primer valor fuera del rango de latitud de la
+  // ciudad casi seguro es la longitud: se asume que venían al revés.
+  if (!a.h && !b.h && Math.abs(lat) > 60 && Math.abs(lon) < 60) { const t = lat; lat = lon; lon = t; }
+  else if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) { const t = lat; lat = lon; lon = t; }
+  if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat, lon };
+}
+
+function flyToCoord(lat, lon) {
+  if (!MAP) return;
+  if (gotoMarker) gotoMarker.remove();
+  gotoMarker = new maplibregl.Marker({ color: "#c1121f" })
+    .setLngLat([lon, lat])
+    .setPopup(new maplibregl.Popup({ offset: 26, closeButton: false })
+      .setText(`${lat.toFixed(5)}, ${lon.toFixed(5)}`))
+    .addTo(MAP);
+  gotoMarker.togglePopup();
+  MAP.flyTo({ center: [lon, lat], zoom: Math.max(MAP.getZoom(), 15.5),
+              duration: 1200, padding: mapPadding() });
+}
+
+function clearGotoMarker() {
+  if (gotoMarker) { gotoMarker.remove(); gotoMarker = null; }
+  const c = $("goto-clear");
+  if (c) c.hidden = true;
+}
+
+const GOTO_HTML = `
+    <div class="group">
+      <h4>Ir a una coordenada</h4>
+      <div class="goto">
+        <input id="goto-input" type="text" autocomplete="off" spellcheck="false"
+               placeholder="41.9640°N, 87.6565°W  ·  o  41.9640, -87.6565">
+        <button class="minitog" id="goto-btn" type="button">Ir</button>
+      </div>
+      <p class="hint" id="goto-msg">Pega la latitud/longitud rotulada bajo cada panel de las
+        figuras de subgrafos para ver esa zona en el mapa.</p>
+      <button class="minitog" id="goto-clear" type="button" hidden>Quitar la marca</button>
+    </div>`;
+
+function wireGoto() {
+  const inp = $("goto-input");
+  if (!inp) return;
+  const msg = $("goto-msg"), clr = $("goto-clear");
+  const base = "Pega la latitud/longitud rotulada bajo cada panel de las figuras de subgrafos para ver esa zona en el mapa.";
+  const go = () => {
+    const p = parseLatLon(inp.value);
+    if (!p) {
+      msg.textContent = "No entiendo esa coordenada. Prueba «41.9640, -87.6565» o «41.9640°N, 87.6565°W».";
+      msg.classList.add("bad");
+      return;
+    }
+    msg.classList.remove("bad");
+    msg.textContent = `En el mapa: ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}.`;
+    flyToCoord(p.lat, p.lon);
+    clr.hidden = false;
+  };
+  $("goto-btn").onclick = go;
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); go(); } };
+  clr.onclick = () => { clearGotoMarker(); msg.classList.remove("bad"); msg.textContent = base; };
+}
+
 function buildEvalTab() {
   if (!EVAL) {
-    $("tab-eval").innerHTML = `<div class="group"><div class="callout warn">
+    $("tab-eval").innerHTML = GOTO_HTML + `<div class="group"><div class="callout warn">
       No hay evaluación. Ejecuta
       <code class="c">crimepipe evaluate</code>.</div></div>`;
+    wireGoto();
     return;
   }
   const M = EVAL.methods, C = EVAL.comparisons;
@@ -4633,7 +4729,7 @@ function buildEvalTab() {
   const greedy = C.find(c => c.against === "greedy");
   const naive = C.find(c => c.against === "bfs");
 
-  $("tab-eval").innerHTML = `
+  $("tab-eval").innerHTML = GOTO_HTML + `
     <div class="group">
       <h4>Resultados sobre los ${EVAL.meta.months} meses</h4>
       <table class="sweep">
@@ -4688,6 +4784,7 @@ function buildEvalTab() {
       <p class="hint">La serie mensual completa está en
       <code class="c">data/processed/evaluation_monthly.csv</code>.</p>
     </div>`;
+  wireGoto();
   evalDrawn = false;
 }
 
