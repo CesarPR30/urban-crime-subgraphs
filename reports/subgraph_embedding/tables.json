@@ -1,0 +1,2032 @@
+{
+  "archetypes": [
+    {
+      "name": "Diada lineal (2 nodos)",
+      "target_id": "2024-01_h14"
+    },
+    {
+      "name": "Cadena corta (3-4 nodos)",
+      "target_id": "2024-03_h20"
+    },
+    {
+      "name": "Corredor / avenida (camino largo, elongacion baja)",
+      "target_id": "2024-05_h06"
+    },
+    {
+      "name": "Cruce en T / estrella (grado-1 dominante)",
+      "target_id": "2024-04_h14"
+    },
+    {
+      "name": "Anillo / ciclo (grado-2 dominante)",
+      "target_id": "2024-09_h19"
+    },
+    {
+      "name": "Arbol ramificado (aristas = nodos-1, ramas)",
+      "target_id": "2025-05_h08"
+    },
+    {
+      "name": "Damero compacto (denso, elongacion alta)",
+      "target_id": "2024-05_h19"
+    },
+    {
+      "name": "Rejilla grande (>=45 nodos)",
+      "target_id": "2024-07_h01"
+    },
+    {
+      "name": "Peine / cul-de-sac (espina + dientes)",
+      "target_id": "2024-01_h07"
+    },
+    {
+      "name": "Hibrido arterial (clases viales mezcladas)",
+      "target_id": "2024-03_h10"
+    }
+  ],
+  "techniques": {
+    "graph2vec_fusionado": {
+      "2024-01_h14": {
+        "general": [
+          {
+            "id": "2025-04_h17",
+            "month": "2025-04",
+            "score": 0.9991,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-04_h20",
+            "month": "2024-04",
+            "score": 0.9985,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-05_h10",
+            "month": "2024-05",
+            "score": 0.9982,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-10_h20",
+            "month": "2024-10",
+            "score": 0.9982,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-06_h17",
+            "month": "2024-06",
+            "score": 0.9982,
+            "shared_nodes": 2
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-05_h13",
+            "month": "2024-05",
+            "score": 0.9229,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h13",
+            "month": "2025-06",
+            "score": 0.9227,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-03_h15",
+            "month": "2025-03",
+            "score": 0.9225,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h15",
+            "month": "2025-12",
+            "score": 0.921,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-01_h09",
+            "month": "2024-01",
+            "score": 0.9192,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-03_h20": {
+        "general": [
+          {
+            "id": "2025-12_h09",
+            "month": "2025-12",
+            "score": 0.9991,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-01_h15",
+            "month": "2025-01",
+            "score": 0.9987,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-09_h15",
+            "month": "2025-09",
+            "score": 0.9985,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-11_h13",
+            "month": "2025-11",
+            "score": 0.9978,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2024-07_h14",
+            "month": "2024-07",
+            "score": 0.9971,
+            "shared_nodes": 3
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-05_h15",
+            "month": "2024-05",
+            "score": 0.9806,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h18",
+            "month": "2024-06",
+            "score": 0.9783,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h13",
+            "month": "2025-05",
+            "score": 0.9731,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h11",
+            "month": "2024-05",
+            "score": 0.9705,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h20",
+            "month": "2025-05",
+            "score": 0.9083,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-05_h06": {
+        "general": [
+          {
+            "id": "2025-11_h19",
+            "month": "2025-11",
+            "score": 0.927,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-12_h16",
+            "month": "2025-12",
+            "score": 0.924,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-10_h20",
+            "month": "2025-10",
+            "score": 0.9168,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2024-07_h16",
+            "month": "2024-07",
+            "score": 0.9024,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-03_h07",
+            "month": "2025-03",
+            "score": 0.8666,
+            "shared_nodes": 10
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-08_h06",
+            "month": "2024-08",
+            "score": 0.7299,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h20",
+            "month": "2025-06",
+            "score": 0.6494,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-12_h13",
+            "month": "2024-12",
+            "score": 0.6391,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-04_h10",
+            "month": "2024-04",
+            "score": 0.6206,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h19",
+            "month": "2025-05",
+            "score": 0.6059,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-04_h14": {
+        "general": [
+          {
+            "id": "2025-03_h09",
+            "month": "2025-03",
+            "score": 0.9966,
+            "shared_nodes": 4
+          },
+          {
+            "id": "2025-10_h13",
+            "month": "2025-10",
+            "score": 0.9496,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h12",
+            "month": "2025-07",
+            "score": 0.9438,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h17",
+            "month": "2025-08",
+            "score": 0.9422,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h08",
+            "month": "2025-01",
+            "score": 0.9158,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-10_h13",
+            "month": "2025-10",
+            "score": 0.9496,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h12",
+            "month": "2025-07",
+            "score": 0.9438,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h17",
+            "month": "2025-08",
+            "score": 0.9422,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h08",
+            "month": "2025-01",
+            "score": 0.9158,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-04_h12",
+            "month": "2025-04",
+            "score": 0.8915,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-09_h19": {
+        "general": [
+          {
+            "id": "2024-08_h16",
+            "month": "2024-08",
+            "score": 0.8274,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h20",
+            "month": "2024-09",
+            "score": 0.7877,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-04_h08",
+            "month": "2024-04",
+            "score": 0.7581,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h09",
+            "month": "2024-06",
+            "score": 0.7539,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h08",
+            "month": "2025-10",
+            "score": 0.7441,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-08_h16",
+            "month": "2024-08",
+            "score": 0.8274,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h20",
+            "month": "2024-09",
+            "score": 0.7877,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-04_h08",
+            "month": "2024-04",
+            "score": 0.7581,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h09",
+            "month": "2024-06",
+            "score": 0.7539,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h08",
+            "month": "2025-10",
+            "score": 0.7441,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2025-05_h08": {
+        "general": [
+          {
+            "id": "2025-12_h14",
+            "month": "2025-12",
+            "score": 0.9059,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h16",
+            "month": "2025-06",
+            "score": 0.8958,
+            "shared_nodes": 6
+          },
+          {
+            "id": "2024-09_h12",
+            "month": "2024-09",
+            "score": 0.8818,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-03_h16",
+            "month": "2024-03",
+            "score": 0.8213,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h12",
+            "month": "2025-10",
+            "score": 0.8195,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-12_h14",
+            "month": "2025-12",
+            "score": 0.9059,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h12",
+            "month": "2024-09",
+            "score": 0.8818,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-03_h16",
+            "month": "2024-03",
+            "score": 0.8213,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h12",
+            "month": "2025-10",
+            "score": 0.8195,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h19",
+            "month": "2025-12",
+            "score": 0.7436,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-05_h19": {
+        "general": [
+          {
+            "id": "2024-01_h19",
+            "month": "2024-01",
+            "score": 0.8998,
+            "shared_nodes": 7
+          },
+          {
+            "id": "2024-11_h08",
+            "month": "2024-11",
+            "score": 0.6015,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-03_h10",
+            "month": "2025-03",
+            "score": 0.5863,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-04_h10",
+            "month": "2025-04",
+            "score": 0.5836,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h13",
+            "month": "2024-09",
+            "score": 0.5836,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-11_h08",
+            "month": "2024-11",
+            "score": 0.6015,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-03_h10",
+            "month": "2025-03",
+            "score": 0.5863,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-04_h10",
+            "month": "2025-04",
+            "score": 0.5836,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h13",
+            "month": "2024-09",
+            "score": 0.5836,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h09",
+            "month": "2025-06",
+            "score": 0.5794,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-07_h01": {
+        "general": [
+          {
+            "id": "2024-05_h02",
+            "month": "2024-05",
+            "score": 0.7001,
+            "shared_nodes": 53
+          },
+          {
+            "id": "2024-11_h02",
+            "month": "2024-11",
+            "score": 0.6977,
+            "shared_nodes": 80
+          },
+          {
+            "id": "2024-11_h01",
+            "month": "2024-11",
+            "score": 0.6791,
+            "shared_nodes": 112
+          },
+          {
+            "id": "2024-09_h01",
+            "month": "2024-09",
+            "score": 0.6428,
+            "shared_nodes": 114
+          },
+          {
+            "id": "2024-08_h08",
+            "month": "2024-08",
+            "score": 0.6262,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-08_h08",
+            "month": "2024-08",
+            "score": 0.6262,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h04",
+            "month": "2025-05",
+            "score": 0.5724,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-08_h04",
+            "month": "2024-08",
+            "score": 0.5008,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h05",
+            "month": "2024-02",
+            "score": 0.4944,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-04_h11",
+            "month": "2025-04",
+            "score": 0.4908,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-01_h07": {
+        "general": [
+          {
+            "id": "2024-03_h14",
+            "month": "2024-03",
+            "score": 0.9694,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-11_h16",
+            "month": "2024-11",
+            "score": 0.9663,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-07_h10",
+            "month": "2024-07",
+            "score": 0.9537,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2025-03_h12",
+            "month": "2025-03",
+            "score": 0.7988,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-02_h16",
+            "month": "2025-02",
+            "score": 0.7874,
+            "shared_nodes": 8
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-05_h17",
+            "month": "2024-05",
+            "score": 0.7447,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-01_h12",
+            "month": "2024-01",
+            "score": 0.7362,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h16",
+            "month": "2024-02",
+            "score": 0.667,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-11_h07",
+            "month": "2024-11",
+            "score": 0.6634,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h04",
+            "month": "2024-06",
+            "score": 0.6596,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-03_h10": {
+        "general": [
+          {
+            "id": "2025-01_h14",
+            "month": "2025-01",
+            "score": 0.7682,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-11_h04",
+            "month": "2025-11",
+            "score": 0.7186,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-09_h06",
+            "month": "2025-09",
+            "score": 0.673,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2025-10_h05",
+            "month": "2025-10",
+            "score": 0.6689,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-08_h08",
+            "month": "2025-08",
+            "score": 0.6648,
+            "shared_nodes": 2
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-01_h14",
+            "month": "2025-01",
+            "score": 0.7682,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h19",
+            "month": "2024-09",
+            "score": 0.6087,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h17",
+            "month": "2024-10",
+            "score": 0.5866,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-04_h08",
+            "month": "2024-04",
+            "score": 0.5816,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h20",
+            "month": "2024-09",
+            "score": 0.5738,
+            "shared_nodes": 0
+          }
+        ]
+      }
+    },
+    "WWL": {
+      "2024-01_h14": {
+        "general": [
+          {
+            "id": "2025-02_h11",
+            "month": "2025-02",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-10_h20",
+            "month": "2024-10",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-05_h10",
+            "month": "2024-05",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-04_h20",
+            "month": "2024-04",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2024-06_h17",
+            "month": "2024-06",
+            "score": 1.0,
+            "shared_nodes": 2
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-12_h13",
+            "month": "2025-12",
+            "score": 0.7126,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h15",
+            "month": "2024-06",
+            "score": 0.7126,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h16",
+            "month": "2024-06",
+            "score": 0.666,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h12",
+            "month": "2025-08",
+            "score": 0.6641,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h13",
+            "month": "2025-06",
+            "score": 0.6476,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-03_h20": {
+        "general": [
+          {
+            "id": "2025-11_h13",
+            "month": "2025-11",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-09_h15",
+            "month": "2025-09",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-01_h15",
+            "month": "2025-01",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2024-07_h14",
+            "month": "2024-07",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-12_h09",
+            "month": "2025-12",
+            "score": 1.0,
+            "shared_nodes": 3
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-05_h15",
+            "month": "2024-05",
+            "score": 0.9943,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h18",
+            "month": "2024-06",
+            "score": 0.9943,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h11",
+            "month": "2024-05",
+            "score": 0.9326,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h13",
+            "month": "2025-05",
+            "score": 0.9326,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h20",
+            "month": "2025-05",
+            "score": 0.6302,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-05_h06": {
+        "general": [
+          {
+            "id": "2025-11_h19",
+            "month": "2025-11",
+            "score": 0.8131,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2024-07_h16",
+            "month": "2024-07",
+            "score": 0.8131,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-12_h16",
+            "month": "2025-12",
+            "score": 0.8131,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-05_h17",
+            "month": "2025-05",
+            "score": 0.7778,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-10_h20",
+            "month": "2025-10",
+            "score": 0.7469,
+            "shared_nodes": 8
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-04_h15",
+            "month": "2024-04",
+            "score": 0.705,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-03_h17",
+            "month": "2025-03",
+            "score": 0.654,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-11_h09",
+            "month": "2025-11",
+            "score": 0.6365,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h10",
+            "month": "2025-05",
+            "score": 0.635,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-11_h15",
+            "month": "2024-11",
+            "score": 0.6336,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-04_h14": {
+        "general": [
+          {
+            "id": "2025-03_h09",
+            "month": "2025-03",
+            "score": 1.0,
+            "shared_nodes": 4
+          },
+          {
+            "id": "2025-10_h13",
+            "month": "2025-10",
+            "score": 0.8926,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h17",
+            "month": "2025-08",
+            "score": 0.8926,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h12",
+            "month": "2025-07",
+            "score": 0.8926,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h18",
+            "month": "2024-10",
+            "score": 0.6941,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-10_h13",
+            "month": "2025-10",
+            "score": 0.8926,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h17",
+            "month": "2025-08",
+            "score": 0.8926,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h12",
+            "month": "2025-07",
+            "score": 0.8926,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h18",
+            "month": "2024-10",
+            "score": 0.6941,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h16",
+            "month": "2024-10",
+            "score": 0.6878,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-09_h19": {
+        "general": [
+          {
+            "id": "2024-07_h18",
+            "month": "2024-07",
+            "score": 0.6984,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-09_h19",
+            "month": "2025-09",
+            "score": 0.6913,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h18",
+            "month": "2025-01",
+            "score": 0.6806,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-03_h12",
+            "month": "2024-03",
+            "score": 0.6499,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h08",
+            "month": "2024-02",
+            "score": 0.6482,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-07_h18",
+            "month": "2024-07",
+            "score": 0.6984,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-09_h19",
+            "month": "2025-09",
+            "score": 0.6913,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h18",
+            "month": "2025-01",
+            "score": 0.6806,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-03_h12",
+            "month": "2024-03",
+            "score": 0.6499,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h08",
+            "month": "2024-02",
+            "score": 0.6482,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2025-05_h08": {
+        "general": [
+          {
+            "id": "2024-09_h12",
+            "month": "2024-09",
+            "score": 0.852,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h16",
+            "month": "2025-06",
+            "score": 0.8248,
+            "shared_nodes": 6
+          },
+          {
+            "id": "2024-08_h20",
+            "month": "2024-08",
+            "score": 0.8,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h12",
+            "month": "2025-10",
+            "score": 0.7998,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h20",
+            "month": "2025-12",
+            "score": 0.796,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-09_h12",
+            "month": "2024-09",
+            "score": 0.852,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-08_h20",
+            "month": "2024-08",
+            "score": 0.8,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h12",
+            "month": "2025-10",
+            "score": 0.7998,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h20",
+            "month": "2025-12",
+            "score": 0.796,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h17",
+            "month": "2025-10",
+            "score": 0.7855,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-05_h19": {
+        "general": [
+          {
+            "id": "2024-01_h19",
+            "month": "2024-01",
+            "score": 0.5397,
+            "shared_nodes": 7
+          },
+          {
+            "id": "2025-01_h17",
+            "month": "2025-01",
+            "score": 0.5104,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2024-03_h13",
+            "month": "2024-03",
+            "score": 0.4628,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2024-02_h19",
+            "month": "2024-02",
+            "score": 0.4033,
+            "shared_nodes": 6
+          },
+          {
+            "id": "2024-08_h14",
+            "month": "2024-08",
+            "score": 0.3958,
+            "shared_nodes": 8
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-09_h17",
+            "month": "2025-09",
+            "score": 0.2735,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-07_h20",
+            "month": "2024-07",
+            "score": 0.2735,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-01_h15",
+            "month": "2024-01",
+            "score": 0.2735,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h11",
+            "month": "2024-09",
+            "score": 0.2642,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h06",
+            "month": "2025-06",
+            "score": 0.261,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-07_h01": {
+        "general": [
+          {
+            "id": "2025-07_h01",
+            "month": "2025-07",
+            "score": 0.7807,
+            "shared_nodes": 119
+          },
+          {
+            "id": "2024-05_h01",
+            "month": "2024-05",
+            "score": 0.7768,
+            "shared_nodes": 113
+          },
+          {
+            "id": "2025-06_h01",
+            "month": "2025-06",
+            "score": 0.7739,
+            "shared_nodes": 113
+          },
+          {
+            "id": "2024-12_h02",
+            "month": "2024-12",
+            "score": 0.7725,
+            "shared_nodes": 95
+          },
+          {
+            "id": "2024-11_h01",
+            "month": "2024-11",
+            "score": 0.7724,
+            "shared_nodes": 112
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-08_h04",
+            "month": "2024-08",
+            "score": 0.6643,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-04_h03",
+            "month": "2024-04",
+            "score": 0.657,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h03",
+            "month": "2025-08",
+            "score": 0.6387,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h04",
+            "month": "2025-07",
+            "score": 0.6352,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-11_h07",
+            "month": "2024-11",
+            "score": 0.6332,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-01_h07": {
+        "general": [
+          {
+            "id": "2024-03_h14",
+            "month": "2024-03",
+            "score": 1.0,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-07_h10",
+            "month": "2024-07",
+            "score": 1.0,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-11_h16",
+            "month": "2024-11",
+            "score": 1.0,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-02_h18",
+            "month": "2024-02",
+            "score": 0.7202,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-02_h16",
+            "month": "2025-02",
+            "score": 0.7202,
+            "shared_nodes": 8
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-03_h17",
+            "month": "2025-03",
+            "score": 0.6684,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-03_h07",
+            "month": "2025-03",
+            "score": 0.6471,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-11_h15",
+            "month": "2024-11",
+            "score": 0.6457,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h10",
+            "month": "2025-05",
+            "score": 0.6448,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h17",
+            "month": "2024-05",
+            "score": 0.6429,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-03_h10": {
+        "general": [
+          {
+            "id": "2025-06_h06",
+            "month": "2025-06",
+            "score": 0.5346,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2025-01_h10",
+            "month": "2025-01",
+            "score": 0.5346,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2025-11_h04",
+            "month": "2025-11",
+            "score": 0.5344,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2024-12_h07",
+            "month": "2024-12",
+            "score": 0.5307,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h11",
+            "month": "2024-02",
+            "score": 0.5231,
+            "shared_nodes": 2
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-12_h07",
+            "month": "2024-12",
+            "score": 0.5307,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h08",
+            "month": "2024-10",
+            "score": 0.5033,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-08_h13",
+            "month": "2024-08",
+            "score": 0.5015,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h19",
+            "month": "2025-01",
+            "score": 0.5005,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h14",
+            "month": "2025-01",
+            "score": 0.4908,
+            "shared_nodes": 0
+          }
+        ]
+      }
+    },
+    "scattering_geometrico": {
+      "2024-01_h14": {
+        "general": [
+          {
+            "id": "2025-11_h16",
+            "month": "2025-11",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2025-05_h15",
+            "month": "2025-05",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2025-07_h19",
+            "month": "2025-07",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2025-08_h18",
+            "month": "2025-08",
+            "score": 1.0,
+            "shared_nodes": 2
+          },
+          {
+            "id": "2025-06_h10",
+            "month": "2025-06",
+            "score": 1.0,
+            "shared_nodes": 2
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-12_h08",
+            "month": "2025-12",
+            "score": 1.0,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h20",
+            "month": "2025-05",
+            "score": 1.0,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h19",
+            "month": "2024-10",
+            "score": 1.0,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-03_h16",
+            "month": "2025-03",
+            "score": 0.9623,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h13",
+            "month": "2025-12",
+            "score": 0.9619,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-03_h20": {
+        "general": [
+          {
+            "id": "2025-11_h13",
+            "month": "2025-11",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-09_h15",
+            "month": "2025-09",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-01_h15",
+            "month": "2025-01",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2024-07_h14",
+            "month": "2024-07",
+            "score": 1.0,
+            "shared_nodes": 3
+          },
+          {
+            "id": "2025-12_h09",
+            "month": "2025-12",
+            "score": 1.0,
+            "shared_nodes": 3
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-03_h15",
+            "month": "2025-03",
+            "score": 0.9998,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-06_h13",
+            "month": "2025-06",
+            "score": 0.9998,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h13",
+            "month": "2024-05",
+            "score": 0.9998,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h15",
+            "month": "2025-12",
+            "score": 0.9998,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h12",
+            "month": "2025-08",
+            "score": 0.9992,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-05_h06": {
+        "general": [
+          {
+            "id": "2025-05_h17",
+            "month": "2025-05",
+            "score": 0.8994,
+            "shared_nodes": 8
+          },
+          {
+            "id": "2025-08_h14",
+            "month": "2025-08",
+            "score": 0.8451,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-09_h11",
+            "month": "2025-09",
+            "score": 0.8451,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-03_h07",
+            "month": "2025-03",
+            "score": 0.8246,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-10_h11",
+            "month": "2024-10",
+            "score": 0.8178,
+            "shared_nodes": 8
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-08_h14",
+            "month": "2025-08",
+            "score": 0.8451,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-09_h11",
+            "month": "2025-09",
+            "score": 0.8451,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-06_h08",
+            "month": "2024-06",
+            "score": 0.7301,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h04",
+            "month": "2024-05",
+            "score": 0.7051,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h07",
+            "month": "2025-01",
+            "score": 0.7051,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-04_h14": {
+        "general": [
+          {
+            "id": "2025-03_h09",
+            "month": "2025-03",
+            "score": 1.0,
+            "shared_nodes": 4
+          },
+          {
+            "id": "2025-05_h18",
+            "month": "2025-05",
+            "score": 0.9914,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h16",
+            "month": "2024-05",
+            "score": 0.9914,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h17",
+            "month": "2025-08",
+            "score": 0.9745,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h12",
+            "month": "2025-07",
+            "score": 0.9745,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-05_h18",
+            "month": "2025-05",
+            "score": 0.9914,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h16",
+            "month": "2024-05",
+            "score": 0.9914,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h17",
+            "month": "2025-08",
+            "score": 0.9745,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h12",
+            "month": "2025-07",
+            "score": 0.9745,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h13",
+            "month": "2025-10",
+            "score": 0.9745,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-09_h19": {
+        "general": [
+          {
+            "id": "2024-08_h16",
+            "month": "2024-08",
+            "score": 0.8917,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-11_h09",
+            "month": "2025-11",
+            "score": 0.8786,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h18",
+            "month": "2025-01",
+            "score": 0.8708,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h11",
+            "month": "2025-12",
+            "score": 0.8596,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h11",
+            "month": "2025-08",
+            "score": 0.8486,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-08_h16",
+            "month": "2024-08",
+            "score": 0.8917,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-11_h09",
+            "month": "2025-11",
+            "score": 0.8786,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-01_h18",
+            "month": "2025-01",
+            "score": 0.8708,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h11",
+            "month": "2025-12",
+            "score": 0.8596,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-08_h11",
+            "month": "2025-08",
+            "score": 0.8486,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2025-05_h08": {
+        "general": [
+          {
+            "id": "2025-09_h18",
+            "month": "2025-09",
+            "score": 0.7865,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-02_h17",
+            "month": "2025-02",
+            "score": 0.7865,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h18",
+            "month": "2025-10",
+            "score": 0.774,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h17",
+            "month": "2025-10",
+            "score": 0.7566,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-02_h10",
+            "month": "2025-02",
+            "score": 0.7565,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-09_h18",
+            "month": "2025-09",
+            "score": 0.7865,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-02_h17",
+            "month": "2025-02",
+            "score": 0.7865,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h18",
+            "month": "2025-10",
+            "score": 0.774,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h17",
+            "month": "2025-10",
+            "score": 0.7566,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-02_h10",
+            "month": "2025-02",
+            "score": 0.7565,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-05_h19": {
+        "general": [
+          {
+            "id": "2024-01_h19",
+            "month": "2024-01",
+            "score": 0.7812,
+            "shared_nodes": 7
+          },
+          {
+            "id": "2024-09_h11",
+            "month": "2024-09",
+            "score": 0.5812,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h17",
+            "month": "2024-02",
+            "score": 0.5661,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h15",
+            "month": "2024-10",
+            "score": 0.5364,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h12",
+            "month": "2024-05",
+            "score": 0.5364,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-09_h11",
+            "month": "2024-09",
+            "score": 0.5812,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h17",
+            "month": "2024-02",
+            "score": 0.5661,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-10_h15",
+            "month": "2024-10",
+            "score": 0.5364,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-05_h12",
+            "month": "2024-05",
+            "score": 0.5364,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h06",
+            "month": "2025-07",
+            "score": 0.5015,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-07_h01": {
+        "general": [
+          {
+            "id": "2025-06_h02",
+            "month": "2025-06",
+            "score": 0.9545,
+            "shared_nodes": 68
+          },
+          {
+            "id": "2025-08_h02",
+            "month": "2025-08",
+            "score": 0.9489,
+            "shared_nodes": 82
+          },
+          {
+            "id": "2024-11_h01",
+            "month": "2024-11",
+            "score": 0.9465,
+            "shared_nodes": 112
+          },
+          {
+            "id": "2025-11_h01",
+            "month": "2025-11",
+            "score": 0.9357,
+            "shared_nodes": 115
+          },
+          {
+            "id": "2025-10_h02",
+            "month": "2025-10",
+            "score": 0.9335,
+            "shared_nodes": 84
+          }
+        ],
+        "other": [
+          {
+            "id": "2024-09_h04",
+            "month": "2024-09",
+            "score": 0.6822,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-08_h05",
+            "month": "2024-08",
+            "score": 0.6485,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-07_h04",
+            "month": "2025-07",
+            "score": 0.6433,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-09_h03",
+            "month": "2024-09",
+            "score": 0.6277,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-07_h04",
+            "month": "2024-07",
+            "score": 0.6174,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-01_h07": {
+        "general": [
+          {
+            "id": "2024-11_h16",
+            "month": "2024-11",
+            "score": 1.0,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-07_h10",
+            "month": "2024-07",
+            "score": 1.0,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2024-03_h14",
+            "month": "2024-03",
+            "score": 1.0,
+            "shared_nodes": 10
+          },
+          {
+            "id": "2025-11_h08",
+            "month": "2025-11",
+            "score": 0.8769,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-02_h18",
+            "month": "2024-02",
+            "score": 0.7834,
+            "shared_nodes": 8
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-11_h08",
+            "month": "2025-11",
+            "score": 0.8769,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h10",
+            "month": "2025-05",
+            "score": 0.7807,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-03_h03",
+            "month": "2024-03",
+            "score": 0.7358,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h05",
+            "month": "2025-12",
+            "score": 0.7254,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-10_h09",
+            "month": "2025-10",
+            "score": 0.7,
+            "shared_nodes": 0
+          }
+        ]
+      },
+      "2024-03_h10": {
+        "general": [
+          {
+            "id": "2025-03_h17",
+            "month": "2025-03",
+            "score": 0.8676,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-04_h07",
+            "month": "2025-04",
+            "score": 0.8377,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-07_h06",
+            "month": "2024-07",
+            "score": 0.8076,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h04",
+            "month": "2025-05",
+            "score": 0.7885,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h03",
+            "month": "2025-12",
+            "score": 0.7817,
+            "shared_nodes": 0
+          }
+        ],
+        "other": [
+          {
+            "id": "2025-03_h17",
+            "month": "2025-03",
+            "score": 0.8676,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-04_h07",
+            "month": "2025-04",
+            "score": 0.8377,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2024-07_h06",
+            "month": "2024-07",
+            "score": 0.8076,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-05_h04",
+            "month": "2025-05",
+            "score": 0.7885,
+            "shared_nodes": 0
+          },
+          {
+            "id": "2025-12_h03",
+            "month": "2025-12",
+            "score": 0.7817,
+            "shared_nodes": 0
+          }
+        ]
+      }
+    }
+  }
+}

@@ -227,3 +227,73 @@ def test_los_pois_no_entran_en_la_similitud():
     los puede ver ni por accidente."""
     campos = set(Subgraph.__dataclass_fields__)
     assert not (campos & {"pois", "poi_counts", "entropy", "poi_profile"})
+
+
+# ── Cociente de localización (eje temporal) ───────────────────────────────
+
+
+def test_lq_invariante_ante_importacion_masiva():
+    """La propiedad por la que se eligió la red como base.
+
+    Entre 2018 y 2025 OSM absorbió el padrón escolar peruano y `education` se
+    multiplicó por 3.4 sin que Lima construyese un solo colegio. Un cociente que
+    se mueva ante eso convierte un artefacto de mapeo en un hallazgo.
+    """
+    from pipeline.features.pois import location_quotient
+
+    zona = np.array([10, 5, 0, 20], dtype=np.int64)
+    ciudad = np.array([100, 100, 50, 100], dtype=np.int64)
+    antes = location_quotient(zona, ciudad, 50, 10_000)
+
+    # Importación nacional: la MISMA categoría se multiplica en zona y ciudad.
+    z2, c2 = zona.copy(), ciudad.copy()
+    z2[3] *= 4
+    c2[3] *= 4
+    assert np.allclose(antes, location_quotient(z2, c2, 50, 10_000))
+
+    # Y ante un crecimiento uniforme de todo el mapa, también.
+    assert np.allclose(antes, location_quotient(zona * 3, ciudad * 3, 50, 10_000))
+
+
+def test_lq_clasico_si_se_mueve():
+    """Documenta por qué NO se usa `(n_c/n) / (N_c/N)`.
+
+    Este test existe para que nadie lo «simplifique» de vuelta a la forma
+    clásica pensando que da igual: no da igual, y aquí está el contraejemplo.
+    """
+    zona = np.array([10, 5, 0, 20], dtype=np.float64)
+    ciudad = np.array([100, 100, 50, 100], dtype=np.float64)
+
+    def clasico(z, c):
+        return (z / z.sum()) / (c / c.sum())
+
+    antes = clasico(zona, ciudad)[3]
+    z2, c2 = zona.copy(), ciudad.copy()
+    z2[3] *= 4
+    c2[3] *= 4
+    despues = clasico(z2, c2)[3]
+    assert not math.isclose(antes, despues, rel_tol=0.05)
+
+
+def test_lq_categoria_ausente_no_se_inventa():
+    from pipeline.features.pois import location_quotient
+
+    lq = location_quotient(np.array([1, 0]), np.array([10, 0]), 5, 100)
+    assert lq[1] == 0.0
+
+
+def test_assign_temporal_exige_los_dos_ejes():
+    with pytest.raises(ValueError, match="van juntos"):
+        assign([_sub_lima()], [0.0], [0.0], ["food"], CATS, 50.0,
+               poi_year=np.array([2018]))
+
+
+def _sub_lima():
+    """Subgrafo mínimo para los tests del eje temporal.
+
+    Nombre propio y no `_sub`: el fichero ya tiene un `_sub` con otra firma y
+    redefinirlo dejaba sin helper a los seis tests que estaban antes.
+    """
+    return Subgraph(id="2018-01_h01", month="2018-01", nodes=[1, 2],
+                    edges=[(1, 2)], xy=np.array([[0.0, 0.0], [100.0, 0.0]]),
+                    edge_class=["residential"], epsg=local_epsg([-12.0], [-77.0]))

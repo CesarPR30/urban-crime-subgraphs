@@ -54,6 +54,15 @@ class Hotspot:
     peak_node: int = -1                   # máximo del campo que define la región
     peak_f: float = 0.0
     persistence: float = 0.0
+    llr: float = 0.0
+    """Log-razón de verosimilitud de Poisson: cuánto más crimen tiene la región
+    del que le tocaría por su tamaño. Es el estadístico con el que se decide la
+    significancia, y se emite siempre —no solo con `montecarlo`— porque ordena
+    las regiones por *concentración* y no por volumen."""
+    p_value: float | None = None
+    """Significancia contra la distribución nula, si el criterio de selección
+    la calcula (`selection.method: montecarlo`). `None` con los demás: un
+    hueco es más honesto que un 0.0 que se leería como «significativísimo»."""
 
     @property
     def n_nodes(self) -> int:
@@ -76,6 +85,8 @@ class Hotspot:
             "peak_node": self.peak_node,
             "peak_f": round(self.peak_f, 6),
             "persistence": round(self.persistence, 6),
+            "llr": round(self.llr, 4),
+            **({} if self.p_value is None else {"p_value": round(self.p_value, 6)}),
             "n_nodes": self.n_nodes,
             "density": round(self.density, 4),
         }
@@ -192,22 +203,34 @@ def extract_month(
     *,
     alpha: float,
     f_min_ratio: float,
-    top_k: int,
-) -> list[Hotspot]:
-    """Extrae los `top_k` hotspots de un mes.
+    selection=None,
+    null_max=None,
+    top_k: int | None = None,
+) -> tuple[list[Hotspot], object]:
+    """Extrae los hotspots de un mes y devuelve cómo se eligieron.
 
     Args:
         f: campo de densidad de ese mes, por índice interno.
         counts: `c(v)` de ese mes, por índice interno.
         cat_counts: `c(v)` desglosado por categoría.
+        selection: `SelectionCfg`. Decide **cuántas** regiones sobreviven; ver
+            `pipeline/selection.py`. `None` con `top_k` reproduce el criterio
+            fijo original.
+        null_max: estadísticos máximos por réplica, solo para `montecarlo`.
 
     Las regiones se puntúan por **crimen crudo capturado** (`Σ c(v)`), no por
     densidad: el objetivo es cubrir crimen real, y puntuar por `f` premiaría a
     las regiones que solo son grandes.
+
+    Devuelve `(hotspots, Selection)`. El segundo elemento no es decorativo: con
+    K adaptativo, *cuántos* hotspots salieron es un resultado del mes y hay que
+    poder auditar contra qué umbral se decidió.
     """
+    from .selection import Selection, poisson_llr, resolve, select_fixed
+
     regions, persistence, peaks = segment(f, g, alpha, f_min_ratio)
     if not regions:
-        return []
+        return [], Selection(keep=[], method="none", n_candidates=0)
 
     scored = []
     for peak, idx in regions.items():
@@ -216,8 +239,22 @@ def extract_month(
             scored.append((score, peak, idx))
     scored.sort(key=lambda t: (-t[0], -peaks[t[1]]))
 
+    scores = np.fromiter((t[0] for t in scored), dtype=np.float64, count=len(scored))
+    # El tamaño de la región en nodos es su población en riesgo bajo el nulo
+    # homogéneo, y es lo que impide que una región enorme parezca significativa
+    # solo por abarcar mucho. Ver `selection.poisson_llr`.
+    sizes = np.fromiter((len(t[2]) for t in scored), dtype=np.float64, count=len(scored))
+    llr = poisson_llr(scores, sizes, float(counts.sum()), float(g.n))
+
+    if selection is None:
+        sel = select_fixed(scores, top_k=top_k if top_k is not None else 20)
+    else:
+        sel = resolve(selection, scores, llr, null_max)
+
     hotspots: list[Hotspot] = []
-    for rank, (score, peak, idx) in enumerate(scored[:top_k], 1):
+    pvals = dict(zip(sel.keep, sel.p_values)) if sel.p_values else {}
+    for rank, pos in enumerate(sel.keep, 1):
+        score, peak, idx = scored[pos]
         arr = np.asarray(idx, dtype=np.int64)
         local = counts[arr]
         seed = int(arr[int(np.lexsort((-f[arr], -local))[0])])
@@ -236,6 +273,8 @@ def extract_month(
                 peak_node=int(g.ids[peak]),
                 peak_f=peaks[peak],
                 persistence=persistence[peak],
+                llr=float(llr[pos]),
+                p_value=pvals.get(pos),
             )
         )
-    return hotspots
+    return hotspots, sel

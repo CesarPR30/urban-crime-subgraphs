@@ -1,0 +1,905 @@
+{
+  "source": "C:\\Users\\cesar\\OneDrive\\Escritorio\\Tesis2\\data\\raw\\delitos_lima_metropolitana_completo_2018-25.csv",
+  "total_rows": 3137220,
+  "valid_rows": 3137094,
+  "discarded_rows": 126,
+  "duplicate_rows": 18846,
+  "filtered_rows": 5393,
+  "source_excluded_rows": 2225718,
+  "kept_rows": 887137,
+  "valid_fraction": 0.99996,
+  "dedupe_key": "id_dgc|subtipo_hecho|modalidad_hecho",
+  "source_profile": "lima",
+  "source_rules": {
+    "drop_where": {
+      "observacion": [
+        "GEO FORZADA AL CENTROIDE DE COMISARIA"
+      ]
+    },
+    "keep_where": {
+      "tipo_hecho": [
+        "FALTAS",
+        "LIBERTAD (DELITO)",
+        "PATRIMONIO (DELITO)",
+        "SEGURIDAD PUBLICA (DELITO)",
+        "VIDA, EL CUERPO Y LA SALUD (DELITO)"
+      ]
+    },
+    "fallback_points": {
+      "min_rows": 500,
+      "min_addresses": 100
+    }
+  },
+  "source_by_reason": {
+    "marcada_por_la_fuente": 2007086,
+    "centroide_de_relleno": 218632
+  },
+  "fallback_points": [
+    {
+      "point": "-12.0463731,-77.042754",
+      "rows": 40093,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9689301,-76.9939836",
+      "rows": 12535,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2150408,-76.9211537",
+      "rows": 6606,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9578442,-77.0413923",
+      "rows": 5325,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9815573,-77.096882",
+      "rows": 4811,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2162218,-76.9415442",
+      "rows": 4508,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1416088,-76.9918155",
+      "rows": 4061,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0734497,-77.0162899",
+      "rows": 4042,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0262092,-76.9182101",
+      "rows": 4040,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9593005,-77.0760254",
+      "rows": 3544,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0384329,-76.9570244",
+      "rows": 3407,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9299805,-77.053541",
+      "rows": 3067,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0384188,-76.9570269",
+      "rows": 3032,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0466888,-77.0430886",
+      "rows": 2971,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0266998,-76.8895843",
+      "rows": 2801,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9594023,-77.0760457",
+      "rows": 2787,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1590715,-76.9297354",
+      "rows": 2630,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.8648256,-77.0744298",
+      "rows": 2507,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0979613,-76.9620947",
+      "rows": 2500,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0096967,-76.9053613",
+      "rows": 2467,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.792902,-76.9873477",
+      "rows": 2402,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0290323,-76.994161",
+      "rows": 2378,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0987775,-76.962168",
+      "rows": 2366,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9929208,-77.0518169",
+      "rows": 2287,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2608092,-76.8840477",
+      "rows": 2241,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1860678,-76.9980197",
+      "rows": 2211,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.8818631,-77.0233781",
+      "rows": 2176,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.8612531,-77.0788818",
+      "rows": 2099,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0479963,-77.0006529",
+      "rows": 1982,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1218773,-77.030539",
+      "rows": 1946,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.038441,-76.9570002",
+      "rows": 1913,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1122464,-77.012222",
+      "rows": 1863,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0433031,-76.9703673",
+      "rows": 1851,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1317434,-76.9666687",
+      "rows": 1847,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1411508,-77.0221186",
+      "rows": 1749,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2056614,-76.9531145",
+      "rows": 1645,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0462475,-76.9687343",
+      "rows": 1585,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.046374,-77.0427934",
+      "rows": 1554,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0982554,-76.9625544",
+      "rows": 1542,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.7340437,-77.1468866",
+      "rows": 1532,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1538726,-76.9717368",
+      "rows": 1519,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1848841,-77.0074502",
+      "rows": 1497,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.027406,-77.014704",
+      "rows": 1495,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.025239,-77.0332342",
+      "rows": 1449,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0314981,-77.079716",
+      "rows": 1389,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0201464,-76.8175454",
+      "rows": 1386,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9681796,-77.0042637",
+      "rows": 1367,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9057925,-76.9467822",
+      "rows": 1344,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1876499,-77.0077636",
+      "rows": 1306,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9625192,-77.062038",
+      "rows": 1299,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0820196,-76.928234",
+      "rows": 1218,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9597841,-76.9875007",
+      "rows": 1216,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0774344,-77.0934137",
+      "rows": 1197,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.111062,-77.0315913",
+      "rows": 1073,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2095337,-76.8538748",
+      "rows": 1058,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.122978,-76.9856739",
+      "rows": 1057,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9129492,-77.0175832",
+      "rows": 1039,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.007361,-77.0503233",
+      "rows": 991,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0199542,-76.8865085",
+      "rows": 956,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9947642,-76.7682775",
+      "rows": 921,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.8436103,-77.0987287",
+      "rows": 914,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0904161,-77.0700298",
+      "rows": 884,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0032563,-76.9179994",
+      "rows": 869,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.054731,-77.049194",
+      "rows": 851,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9150865,-77.0478482",
+      "rows": 848,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0147737,-76.8850433",
+      "rows": 818,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.166667,-76.866667",
+      "rows": 796,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9840322,-77.093019",
+      "rows": 795,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1011755,-77.0294076",
+      "rows": 777,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1121974,-76.9899691",
+      "rows": 776,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9601924,-77.0761582",
+      "rows": 742,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1124923,-77.0122039",
+      "rows": 739,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0750295,-77.0435289",
+      "rows": 726,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0948156,-76.7567368",
+      "rows": 720,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9977078,-77.0550569",
+      "rows": 717,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9909013,-77.0704527",
+      "rows": 706,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9683664,-77.0042145",
+      "rows": 693,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0503796,-77.0022279",
+      "rows": 688,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9835509,-76.944141",
+      "rows": 684,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.050383,-77.0022303",
+      "rows": 680,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9371474,-77.071978",
+      "rows": 676,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1863586,-76.998277",
+      "rows": 669,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1551319,-76.9722636",
+      "rows": 669,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0925272,-77.003026",
+      "rows": 658,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0752423,-77.0692591",
+      "rows": 652,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1675125,-76.9201161",
+      "rows": 650,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0140947,-76.9163381",
+      "rows": 646,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0384127,-76.9570128",
+      "rows": 640,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0271206,-77.0362378",
+      "rows": 628,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9755521,-77.0089347",
+      "rows": 627,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0289625,-77.0097152",
+      "rows": 622,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0787583,-77.0655415",
+      "rows": 604,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.8647192,-77.0748696",
+      "rows": 601,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.023711,-76.8940169",
+      "rows": 593,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1437266,-77.0190228",
+      "rows": 592,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0289904,-77.0312154",
+      "rows": 586,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0289675,-77.0145241",
+      "rows": 585,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9298159,-77.0724179",
+      "rows": 573,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9072101,-77.0321697",
+      "rows": 572,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.057053,-77.0516834",
+      "rows": 570,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0904353,-77.069999",
+      "rows": 567,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0384343,-76.9570281",
+      "rows": 566,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9475252,-76.9800991",
+      "rows": 562,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0041191,-77.0648216",
+      "rows": 548,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0380945,-76.9562239",
+      "rows": 547,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0972833,-76.9951041",
+      "rows": 546,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2178354,-76.9073344",
+      "rows": 542,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9593571,-76.9873299",
+      "rows": 540,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0547714,-77.0132203",
+      "rows": 535,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0290717,-77.0150175",
+      "rows": 535,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2183852,-76.9288709",
+      "rows": 533,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.2160493,-76.9416789",
+      "rows": 530,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0848154,-77.0356452",
+      "rows": 528,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0384134,-76.9570091",
+      "rows": 520,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.1947882,-76.9346399",
+      "rows": 509,
+      "min_addresses": 100
+    },
+    {
+      "point": "-11.9815915,-77.0055337",
+      "rows": 505,
+      "min_addresses": 100
+    },
+    {
+      "point": "-12.0986855,-76.9619721",
+      "rows": 503,
+      "min_addresses": 100
+    }
+  ],
+  "columns_in": [
+    "id_dgc",
+    "ubigeo_cia_registro",
+    "id_comisaria_registro",
+    "comisaria_registro",
+    "ubic_comisaria_registro",
+    "ubigeo_cia_hecho",
+    "comisaria_hecho",
+    "tipo_via_hecho",
+    "cuadra_hecho",
+    "direccion_hecho",
+    "fecha_hora_hecho",
+    "turno_hecho",
+    "año_hecho",
+    "mes_hecho",
+    "dia_hecho",
+    "ubigeo_hecho_delito",
+    "lat_hecho",
+    "long_hecho",
+    "id_dpto_hecho",
+    "departamento_hecho",
+    "id_prov_hecho",
+    "provincia_hecho",
+    "id_dist_hecho",
+    "distrito_hecho",
+    "solo_denuncia",
+    "es_delito_x",
+    "cod_uni_hecho",
+    "cod_cpnp_hecho",
+    "id_materia_hecho",
+    "materia_hecho",
+    "id_tipo_hecho",
+    "tipo_hecho",
+    "id_subtipo_hecho",
+    "subtipo_hecho",
+    "id_modalidad_hecho",
+    "modalidad_hecho",
+    "cod_macroregpol_hecho",
+    "macroregpol_hecho",
+    "cod_regpol_hecho",
+    "regionpol_hecho",
+    "cod_divpol_divopus_hecho",
+    "divpol_divopus_hecho",
+    "fuente",
+    "tipologias_ia",
+    "estado",
+    "estado_coord",
+    "observacion",
+    "objectid",
+    "fecha_hora_registro_hecho",
+    "barrio",
+    "comisaria",
+    "departamento",
+    "provincia",
+    "distrito",
+    "indice_priorizacion",
+    "fecha_inaguracion",
+    "fecha_hora_hecho_iso_utc",
+    "fecha_hora_registro_hecho_iso_utc"
+  ],
+  "columns_kept": [
+    "lat",
+    "lon",
+    "fecha",
+    "crimen",
+    "tipo",
+    "lugar",
+    "id"
+  ],
+  "columns_dropped": [
+    "ubigeo_cia_registro",
+    "id_comisaria_registro",
+    "comisaria_registro",
+    "ubic_comisaria_registro",
+    "ubigeo_cia_hecho",
+    "comisaria_hecho",
+    "tipo_via_hecho",
+    "cuadra_hecho",
+    "direccion_hecho",
+    "fecha_hora_hecho",
+    "turno_hecho",
+    "año_hecho",
+    "mes_hecho",
+    "dia_hecho",
+    "ubigeo_hecho_delito",
+    "id_dpto_hecho",
+    "departamento_hecho",
+    "id_prov_hecho",
+    "provincia_hecho",
+    "id_dist_hecho",
+    "solo_denuncia",
+    "es_delito_x",
+    "cod_uni_hecho",
+    "cod_cpnp_hecho",
+    "id_materia_hecho",
+    "materia_hecho",
+    "id_tipo_hecho",
+    "tipo_hecho",
+    "id_subtipo_hecho",
+    "id_modalidad_hecho",
+    "cod_macroregpol_hecho",
+    "macroregpol_hecho",
+    "cod_regpol_hecho",
+    "regionpol_hecho",
+    "cod_divpol_divopus_hecho",
+    "divpol_divopus_hecho",
+    "fuente",
+    "tipologias_ia",
+    "estado",
+    "estado_coord",
+    "observacion",
+    "objectid",
+    "fecha_hora_registro_hecho",
+    "barrio",
+    "comisaria",
+    "departamento",
+    "provincia",
+    "distrito",
+    "indice_priorizacion",
+    "fecha_inaguracion",
+    "fecha_hora_registro_hecho_iso_utc"
+  ],
+  "column_mapping": {
+    "lat": "lat_hecho",
+    "lon": "long_hecho",
+    "fecha": "fecha_hora_hecho_iso_utc",
+    "crimen": "modalidad_hecho",
+    "tipo": "subtipo_hecho",
+    "lugar": "distrito_hecho",
+    "id": "id_dgc"
+  },
+  "discards_by_reason": {
+    "lat_invalida": 0,
+    "lon_invalida": 0,
+    "fecha_invalida": 0,
+    "crimen_vacio": 49,
+    "tipo_vacio": 77
+  },
+  "filters_applied": {
+    "ventana": "2018-01 .. *"
+  },
+  "filters_by_reason": {
+    "fuera_de_categoria": 0,
+    "fuera_de_ventana": 5393
+  },
+  "months": {
+    "2018-01": 10840,
+    "2018-02": 10456,
+    "2018-03": 12076,
+    "2018-04": 10755,
+    "2018-05": 12351,
+    "2018-06": 11422,
+    "2018-07": 11283,
+    "2018-08": 12678,
+    "2018-09": 12162,
+    "2018-10": 12641,
+    "2018-11": 11873,
+    "2018-12": 12777,
+    "2019-01": 12527,
+    "2019-02": 11117,
+    "2019-03": 11349,
+    "2019-04": 11730,
+    "2019-05": 11935,
+    "2019-06": 11557,
+    "2019-07": 7994,
+    "2019-08": 8586,
+    "2019-09": 4923,
+    "2019-10": 333,
+    "2019-11": 4416,
+    "2019-12": 10404,
+    "2020-01": 10967,
+    "2020-02": 10490,
+    "2020-03": 6269,
+    "2020-04": 1549,
+    "2020-05": 2795,
+    "2020-06": 4140,
+    "2020-07": 5386,
+    "2020-08": 5955,
+    "2020-09": 6158,
+    "2020-10": 6482,
+    "2020-11": 6185,
+    "2020-12": 6735,
+    "2021-01": 6868,
+    "2021-02": 5249,
+    "2021-03": 6732,
+    "2021-04": 6545,
+    "2021-05": 7405,
+    "2021-06": 7699,
+    "2021-07": 8535,
+    "2021-08": 8546,
+    "2021-09": 8192,
+    "2021-10": 9055,
+    "2021-11": 8916,
+    "2021-12": 9525,
+    "2022-01": 9147,
+    "2022-02": 9972,
+    "2022-03": 11537,
+    "2022-04": 10804,
+    "2022-05": 11075,
+    "2022-06": 10231,
+    "2022-07": 11074,
+    "2022-08": 10922,
+    "2022-09": 11225,
+    "2022-10": 11458,
+    "2022-11": 10798,
+    "2022-12": 13379,
+    "2023-01": 13866,
+    "2023-02": 14402,
+    "2023-03": 16257,
+    "2023-04": 16765,
+    "2023-05": 16370,
+    "2023-06": 13479,
+    "2023-07": 12750,
+    "2023-08": 15098,
+    "2023-09": 14749,
+    "2023-10": 16830,
+    "2023-11": 16593,
+    "2023-12": 17260,
+    "2024-01": 17126,
+    "2024-02": 17441,
+    "2024-03": 18226,
+    "2024-04": 15276,
+    "2024-05": 14886,
+    "2024-06": 15403,
+    "2024-07": 16959,
+    "2024-08": 16592,
+    "2024-09": 7123,
+    "2024-10": 4165,
+    "2024-11": 1610,
+    "2024-12": 1567,
+    "2025-01": 1645,
+    "2025-02": 1620,
+    "2025-03": 1832,
+    "2025-04": 1737,
+    "2025-05": 1628,
+    "2025-06": 1697
+  },
+  "categories": {
+    "HURTO": 315378,
+    "ROBO": 218156,
+    "FALTAS CONTRA EL PATRIMONIO": 65439,
+    "PELIGRO COMUN": 61484,
+    "FALTAS CONTRA LAS PERSONAS": 53824,
+    "LESIONES": 45276,
+    "ESTAFA Y OTRAS DEFRAUDACIONES": 32059,
+    "VIOLACION DE LA LIBERTAD SEXUAL": 28670,
+    "VIOLACION DE LA LIBERTAD PERSONAL": 13039,
+    "RECEPTACION": 11988,
+    "EXTORSION": 10479,
+    "HOMICIDIO": 5587,
+    "USURPACION": 4933,
+    "SALUD PUBLICA": 4552,
+    "APROPIACION ILICITA": 4434,
+    "DAÑOS": 3668,
+    "FALTAS CONTRA LAS BUENAS COSTUMBRES": 2215,
+    "VIOLACION DE DOMICILIO": 1717,
+    "VIOLACION DE LA INTIMIDAD": 1544,
+    "FALTAS CONTRA LA TRANQUILIDAD PUBLICA": 662,
+    "EXPOSICION A PELIGRO O ABANDONO DE PERSONAS EN PELIGRO": 506,
+    "ABORTO": 456,
+    "OFENSAS AL PUDOR PUBLICO": 449,
+    "FALTAS CONTRA LA SEGURIDAD PUBLICA": 247,
+    "PROXENETISMO": 117,
+    "MEDIOS DE TRANSPORTE, COMUNICACIONES Y OTROS SERVICIOS PUBLICOS": 117,
+    "ABIGEATO": 53,
+    "VIOLACION DE LA LIBERTAD DE TRABAJO": 25,
+    "DELITOS INFORMATICOS": 20,
+    "FRAUDE EN LA ADMINISTRACION DE PERSONAS JURIDICAS": 14,
+    "VIOLACION DEL SECRETO DE LAS COMUNICACIONES": 13,
+    "VIOLACION DE LA LIBERTAD DE REUNION": 11,
+    "CONTRA EL ORDEN MIGRATORIO": 3,
+    "VIOLACION DEL SECRETO PROFESIONAL": 1,
+    "VIOLACION DE LA LIBERTAD DE EXPRESION": 1
+  },
+  "bbox": [
+    -12.5114527,
+    -77.19407494,
+    -11.67057681,
+    -76.66982329
+  ],
+  "elapsed_s": 476.027
+}

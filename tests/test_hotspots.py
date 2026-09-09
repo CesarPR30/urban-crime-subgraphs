@@ -100,14 +100,14 @@ class TestSegmentacion:
 class TestExtraccion:
     def test_respeta_top_k_y_ordena_por_crimen_capturado(self, peaked_field):
         g, f, counts = peaked_field
-        hs = extract_month("2024-01", f, g, counts, {"THEFT": counts},
+        hs, _ = extract_month("2024-01", f, g, counts, {"THEFT": counts},
                            alpha=0.3, f_min_ratio=0.10, top_k=2)
         assert len(hs) <= 2
         assert [h.crimes for h in hs] == sorted((h.crimes for h in hs), reverse=True)
 
     def test_la_semilla_es_el_nodo_con_mas_crimenes(self, peaked_field):
         g, f, counts = peaked_field
-        hs = extract_month("2024-01", f, g, counts, {"THEFT": counts},
+        hs, _ = extract_month("2024-01", f, g, counts, {"THEFT": counts},
                            alpha=0.3, f_min_ratio=0.10, top_k=5)
         for h in hs:
             idx = np.array([g.index[n] for n in h.nodes])
@@ -116,14 +116,14 @@ class TestExtraccion:
     def test_el_desglose_por_categoria_suma_el_total(self, peaked_field):
         g, f, counts = peaked_field
         a, b = counts * 0.6, counts * 0.4
-        hs = extract_month("2024-01", f, g, counts, {"A": a, "B": b},
+        hs, _ = extract_month("2024-01", f, g, counts, {"A": a, "B": b},
                            alpha=0.3, f_min_ratio=0.10, top_k=5)
         for h in hs:
             assert sum(h.by_category.values()) <= h.crimes
 
     def test_las_aristas_conectan_solo_nodos_de_la_region(self, peaked_field):
         g, f, counts = peaked_field
-        hs = extract_month("2024-01", f, g, counts, {"THEFT": counts},
+        hs, _ = extract_month("2024-01", f, g, counts, {"THEFT": counts},
                            alpha=0.3, f_min_ratio=0.10, top_k=5)
         for h in hs:
             inside = set(h.nodes)
@@ -132,7 +132,7 @@ class TestExtraccion:
 
     def test_los_hotspots_de_un_mes_no_se_solapan(self, peaked_field):
         g, f, counts = peaked_field
-        hs = extract_month("2024-01", f, g, counts, {"THEFT": counts},
+        hs, _ = extract_month("2024-01", f, g, counts, {"THEFT": counts},
                            alpha=0.3, f_min_ratio=0.10, top_k=20)
         seen: set[int] = set()
         for h in hs:

@@ -45,17 +45,19 @@ DEFAULT_VALUES = [0.02, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.60]
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--dataset", default=None,
+                   help="ciudad a calibrar (bloque de `datasets:` en config.yaml)")
     p.add_argument("--values", type=float, nargs="+", default=DEFAULT_VALUES)
     p.add_argument("--alpha", type=float, default=None, help="sobrescribe α")
     args = p.parse_args()
 
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)-7s %(name)-18s %(message)s")
-    cfg = load_config()
+    cfg = load_config(dataset=args.dataset)
     paths = Paths.from_config(cfg).ensure()
     alpha = args.alpha if args.alpha is not None else cfg.hotspots.alpha
 
-    arr, months, cats, report = _load_crimes(cfg)
+    arr, months, cats, report = _load_crimes(cfg, paths)
     H, _, snapped, _ = _snap(cfg, paths, arr, force=False)
     g = to_csr(H)
     counts, cat_counts, n_snapped = _node_counts(g, snapped, arr, months, cats)
@@ -81,7 +83,7 @@ def main() -> int:
     for ratio in args.values:
         cap = nodes = 0
         for m in months:
-            hs = extract_month(m, fields[m], g, counts[m], cat_counts[m],
+            hs, _ = extract_month(m, fields[m], g, counts[m], cat_counts[m],
                                alpha=alpha, f_min_ratio=ratio,
                                top_k=cfg.hotspots.top_k)
             cap += sum(h.crimes for h in hs)

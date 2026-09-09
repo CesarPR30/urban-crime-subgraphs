@@ -28,6 +28,9 @@ de graph2vec va implementado en numpy. Ver [Fase E](#graph2vec-sin-gensim).
 
 ## El pipeline
 
+Cada paso acepta `--dataset chicago|lima`; sin él se usa `active_dataset` del
+config. Ver [Multi-dataset](#multi-dataset-chicago-y-lima).
+
 ```bash
 .venv/Scripts/python -m pipeline.cli ingest      # valida CSV + descarga y cachea la red
 .venv/Scripts/python -m pipeline.cli pois        # descarga y clasifica los POIs de OSM
@@ -756,9 +759,19 @@ decisiones son las que hacen que esa escala también funcione.
 > compite ahí. La división es esa — D3 para los gráficos analíticos, MapLibre
 > para la capa geográfica.
 
-> El basemap usa teselas CARTO porque no requieren token. La especificación pide
-> Mapbox GL JS; el cambio es directo cuando haya token, las dos APIs son
-> compatibles.
+> El basemap **ya no es CARTO**. `basemaps.cartocdn.com` pasó a exigir clave de
+> API: sigue devolviendo HTTP 200, pero la tesela es una marca de agua que dice
+> «API KEY REQUIRED». Se verificó pidiendo la misma tesela para el centro de
+> Lima y para mar abierto —hash MD5 idéntico, o sea que no es mapa—. Un 200 que
+> no es un error visible es el peor modo de fallo posible.
+>
+> Ahora se usa **OpenFreeMap**, que sirve el mismo estilo Positron en vectorial,
+> sin clave y sin cuota. El conmutador de mapa base cambia el estilo entero con
+> `setStyle` y reinyecta las capas propias vía `transformStyle`, así que no hay
+> que reconstruir el GeoJSON —27 MB en Lima— ni recablear la interfaz.
+>
+> La especificación pide Mapbox GL JS; el cambio es directo cuando haya token,
+> las dos APIs son compatibles.
 
 ---
 
@@ -771,12 +784,13 @@ decisiones son las que hacen que esa escala también funcione.
 ├── pyproject.toml
 ├── data/
 │   ├── raw/                          # CSV crudo (gitignored)
-│   ├── interim/                      # caché: red, snapping, hotspots
+│   ├── interim/<ciudad>/             # caché por dataset (gitignored)
 │   │   ├── crimes_canonical.csv      # el CSV ya proyectado a 7 columnas
+│   │   ├── crimes_load.npz           # la carga cacheada (Lima tarda 10 min)
 │   │   ├── network.graphml           # red vial cacheada
 │   │   ├── snapped.npz               # nodo asignado por crimen
-│   │   └── hotspots.json             # los 480 subgrafos
-│   └── processed/
+│   │   └── hotspots.json             # los subgrafos del mes
+│   └── processed/<ciudad>/
 ├── pipeline/
 │   ├── config.py                     # modelos pydantic + carga de config.yaml
 │   ├── io.py                         # rutas, claves de caché, manifest
@@ -796,6 +810,7 @@ decisiones son las que hacen que esa escala también funcione.
 │   │   └── pois.py                   # §5.6 perfil de POIs y entropía
 │   └── ingest/
 │       ├── crimes.py                 # §3.1 cargador + ValidationReport
+│       ├── profiles.py               # §3.1 lo propio de cada proveedor
 │       ├── pois.py                   # §3.2 descarga y clasificación de POIs
 │       ├── poi_taxonomy.yaml         # §3.2 mapeo OSM -> 8 categorías
 │       └── network.py                # §3.3 descarga + caché + jerarquía vial
@@ -803,12 +818,16 @@ decisiones son las que hacen que esa escala también funcione.
 │   ├── calibrate_fmin.py             # barrido de f_min contra §7.3
 │   ├── sweep_params.py               # barrido autónomo σ × α × f_min × K
 │   ├── build_map_data.py             # CSV -> artefacto binario del mapa
+│   ├── build_datasets_index.py       # datasets.json para el selector de ciudad
 │   └── serve_map.py                  # servidor estático local
 ├── tests/                            # 126 tests
 └── dashboard/
     └── public/
-        ├── index.html                # mapa de verificación (MapLibre + D3)
-        └── data/                     # artefactos generados (gitignored)
+        ├── index.html                # dashboard (MapLibre + D3)
+        └── data/
+            ├── datasets.json         # índice que alimenta el selector
+            ├── chicago/              # artefactos de Chicago
+            └── lima/                 # artefactos de Lima
 ```
 
 ## Proyección al esquema canónico
@@ -836,7 +855,7 @@ ningún módulo posterior conoce el esquema del proveedor. El resultado se
 materializa en `data/interim/crimes_canonical.csv` como evidencia de la
 reducción.
 
-## El dataset
+## El dataset de Chicago
 
 `data/raw/Crimes_-_2001_to_Present_20260822.csv` — export completo del portal de
 Chicago: 495 854 filas, 2024 y 2025 enteros, 31 tipos de delito.
@@ -869,3 +888,909 @@ reales, así que la clave por defecto es `id` (`--dedupe auto`).
   ambos en la misma columna por no existir dos niveles de descripción.
 - El descarte de 3 230 filas por `lat_invalida` es del CSV de origen: son
   incidentes sin geocodificar. No se pueden snappear a la red vial.
+
+---
+
+## Multi-dataset: Chicago y Lima
+
+El pipeline procesa dos ciudades. Todo lo que depende de la ciudad vive bajo
+`datasets:` en `config.yaml`; el resto del archivo —σ, α, `f_min`, pesos de
+fusión, dimensiones del embedding— son parámetros del método y se comparten.
+El bloque de un dataset puede sobrescribir **cualquier** sección de nivel
+superior, así que si una ciudad necesita otro σ basta con redeclararlo dentro
+de su bloque.
+
+```bash
+.venv/Scripts/python scripts/build_map_data.py --dataset lima
+.venv/Scripts/python -m pipeline.cli hotspots --dataset lima
+.venv/Scripts/python -m pipeline.cli evaluate --dataset lima
+.venv/Scripts/python -m pipeline.cli pois     --dataset lima
+.venv/Scripts/python -m pipeline.cli features --dataset lima
+.venv/Scripts/python -m pipeline.cli export   --dataset lima
+.venv/Scripts/python scripts/build_datasets_index.py   # refresca el selector
+```
+
+Sin `--dataset` se usa `active_dataset` del config. Cada ciudad escribe en sus
+propias carpetas —`data/interim/<ciudad>/`, `data/processed/<ciudad>/`,
+`dashboard/public/data/<ciudad>/`— porque los artefactos no son mezclables:
+`crimes.bin` y `snapping.bin` se indexan por posición y llevan una huella que
+el navegador comprueba, pero `hotspots.geojson` y `similarity.json` no la
+llevan y se habrían pisado en silencio.
+
+En el dashboard el selector es **la marca misma**, arriba a la izquierda: el
+dataset activo no es un filtro más, es la identidad de todo lo que hay debajo.
+Cambiar de ciudad recarga la página con `?dataset=<id>`; el estado se recuerda
+en `localStorage`. Se recarga a propósito: media docena de estructuras del
+dashboard (índices de hotspots, dominios de color, la capa de deck.gl, el
+estado de selección) se derivan de los artefactos en el arranque y no tienen
+camino de vuelta.
+
+`data/datasets.json` es lo que alimenta el selector. Lo genera
+`scripts/build_datasets_index.py` desde el config, y **solo lista los datasets
+con artefactos en disco**: uno declarado pero sin procesar aparecería en el
+menú y llevaría a un mapa vacío.
+
+### Perfiles de fuente
+
+`pipeline/ingest/crimes.py` sabe proyectar cualquier CSV al esquema canónico
+resolviendo alias de columna. Eso basta mientras el proveedor solo difiera en
+cómo *llama* a las cosas; no basta cuando difiere en **qué hay que hacer con
+las filas**. Para eso está `pipeline/ingest/profiles.py`, donde un perfil
+declara cuatro cosas y ninguna más:
+
+| | |
+|---|---|
+| `columns` | anclaje explícito canónica → columna real. Gana sobre los alias. |
+| `uid_columns` | identificador compuesto, para fuentes donde ninguna columna sola identifica el hecho. |
+| `drop_where` | exclusión por valor de una columna *de origen*: filas que la fuente marca como no fiables. |
+| `local_utc_offset_h` | desfase horario, cuando la fuente publica la fecha en UTC. |
+
+Un perfil no contiene umbrales. Los umbrales viven en `config.yaml`, porque son
+parámetros del análisis y tienen que poder barrerse; el perfil solo dice *qué*
+columnas mirar.
+
+El reporte de validación gana una tercera categoría de baja. Antes había dos y
+no había que mezclarlas: **descartes** (el CSV viene mal: coordenada ilegible,
+fecha imposible) miden la calidad de la fuente, y **filtros** (categoría no
+analizada, mes fuera de ventana) miden el recorte del estudio. Lima obliga a
+una tercera, **exclusiones**, que no es ninguna de las dos: la fila está bien
+formada y dentro del alcance, pero su geocodificación es falsa. Contarla como
+descarte diría que el CSV está roto; contarla como filtro diría que se decidió
+no estudiarla. Ni una cosa ni la otra.
+
+---
+
+## El dataset de Lima
+
+`data/raw/delitos_lima_metropolitana_completo_2018-25.csv` — denuncias de la
+PNP consolidadas por la DGIS. **1.8 GB, 3 137 220 filas, 58 columnas**, un solo
+departamento y una sola provincia (LIMA / LIMA), 43 distritos.
+
+### Qué columnas se necesitan
+
+Siete de las 58. Las otras 51 se descartan de forma explícita y quedan
+enumeradas en `validation_report.json`.
+
+| Canónica | Columna de origen | Por qué esa y no otra |
+|---|---|---|
+| `lat` / `lon` | `lat_hecho`, `long_hecho` | las del hecho, no las de la comisaría que registró |
+| `fecha` | `fecha_hora_hecho_iso_utc` | el CSV trae además el epoch en ms y el año/mes/día desglosados; la ISO es la única que no hay que reconstruir. **No** `fecha_hora_registro_hecho`: es administrativa y llega a ir meses por detrás |
+| `tipo` | `subtipo_hecho` | el nivel equivalente al `Primary Type` de Chicago (THEFT, ROBBERY, ASSAULT) **no** es `tipo_hecho` sino `subtipo_hecho`: `tipo_hecho` mete hurto, robo, extorsión y estafa en la misma caja. Da 35 tipos distintos en vez de 5 |
+| `crimen` | `modalidad_hecho` | la descripción fina del hecho, equivalente al `Description` de Chicago |
+| `lugar` | `distrito_hecho` | `direccion_hecho` es texto libre sin normalizar y no sirve para agrupar |
+| `id` | `id_dgc` (+ subtipo + modalidad) | ver deduplicación |
+
+Tres columnas más se leen sin llegar al esquema canónico, porque son las que
+gobiernan la limpieza: `observacion`, `direccion_hecho` y `modalidad_hecho`.
+
+**La hora es UTC y hay que convertirla.** El epoch `1547269200000` de la primera
+fila es 2019-01-12 05:00 UTC, que en Lima son las 00:00 — y `turno_hecho` dice
+«madrugada», que confirma la lectura local. Perú no observa horario de verano
+desde 1994, así que en toda la ventana el desfase es exactamente −5 h. No es
+cosmético: el mes es la unidad de agregación del pipeline, y leer en UTC un
+hecho de las 21:00 lo mueve al día siguiente y, si cae a fin de mes, al mes
+siguiente.
+
+### Duplicados
+
+`id_dgc` **no es único**: 164 803 identificadores traen entre 2 y 9 filas.
+
+| Multiplicidad | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| ids | 156 473 | 7 795 | 466 | 52 | 9 | 6 | 1 | 1 |
+
+Inspeccionadas, las filas repetidas son **idénticas en todo menos en
+`objectid`**: misma fecha del hecho, misma coordenada, mismo subtipo, misma
+modalidad, misma comisaría y hasta la misma hora de registro. `objectid` es una
+clave subrogada del ETL, no un hecho distinto.
+
+La clave de deduplicación es **`id_dgc | subtipo_hecho | modalidad_hecho`**, no
+`id_dgc` a secas. `id_dgc` identifica la *denuncia*, y una denuncia puede
+registrar legítimamente dos delitos distintos; añadir subtipo y modalidad
+colapsa la repetición del ETL sin fundir esos dos. Sobre el material retenido
+elimina **131 073 filas**.
+
+No se usa la clave por contenido (fecha, tipo, lat, lon): con este archivo
+colapsaría hechos reales, porque la geocodificación es a nivel de cuadra.
+
+### Geocodificación falsa: el problema serio del archivo
+
+**1 246 941 filas (39.7 %) tienen coordenadas inventadas.** Llevan
+`observacion = GEO FORZADA AL CENTROIDE DE COMISARIA`: no se pudo geocodificar
+la dirección y se las colocó en la comisaría que tomó la denuncia.
+
+Traen `lat_hecho` y `long_hecho` rellenos y numéricamente válidos, así que
+ninguna validación de coordenada las detecta. Lo que las delata es la
+concentración:
+
+| `observacion` | Filas | Puntos distintos | Filas por punto |
+|---|---|---|---|
+| `COORDENADA OK` | 1 777 990 | 430 377 | 4.1 |
+| `COORDENADA ADECUADA MANUALMENTE` | 64 801 | 29 299 | 2.2 |
+| **`GEO FORZADA AL CENTROIDE DE COMISARIA`** | **1 246 941** | **129** | **9 666** |
+
+Sobre un KDE de σ = 120 m cada comisaría sería el hotspot más intenso de la
+ciudad, y el análisis acabaría midiendo dónde están las comisarías.
+
+**El filtro correcto es `observacion`, no `estado_coord`.** Es el error que
+parece obvio y no lo es: `estado_coord` marca `SIN COORDENADA` a 1 338 244
+filas, y ahí dentro caen las 91 314 «adecuadas manualmente», que sí están
+geocodificadas de verdad (2.2 filas por punto). Filtrar por `estado_coord`
+tiraría 91 314 filas buenas y —peor— dejaría pasar nada, porque las malas
+también son detectables ahí; pero el criterio quedaría atado a una columna que
+no significa lo que parece.
+
+### Centroides de relleno: el residuo
+
+Aun descartando lo anterior queda un artefacto más fino. Un único punto,
+**(-12.0463731, -77.042754)** —la Plaza de Armas— acumula **40 805 hechos
+provenientes de 36 127 direcciones escritas distintas**. Es la coordenada a la
+que cae todo lo que el geocodificador no supo resolver dentro del Cercado, y
+hay una equivalente por distrito.
+
+La firma que los separa de una esquina realmente caliente son **dos
+condiciones a la vez**: muchos hechos *y* muchas direcciones distintas. Una
+esquina caliente de verdad —un mercado, un paradero— acumula cientos de hechos
+sobre dos o tres direcciones; un centroide de relleno acumula cientos sobre
+cientos. Exigir solo volumen se llevaría por delante justo lo que el análisis
+busca; exigir solo variedad de direcciones se llevaría cualquier manzana
+geocodificada a nivel de cuadra, que es la precisión normal de la fuente y
+perfectamente utilizable.
+
+Los umbrales están en `config.yaml` (`min_rows: 500`, `min_addresses: 100`) y
+los puntos detectados salen enumerados con su peso en `validation_report.json`,
+para que la decisión sea revisable: si el detector se comiera una esquina real,
+se vería ahí antes que en el mapa. Sobre Lima marca **117 puntos** y descarta
+**218 632 hechos**.
+
+### Qué `tipo_hecho` se conservan
+
+El archivo trae 52 tipos. El criterio es si **el hecho ocurre en la vía
+pública**, que es la condición para que tenga sentido sobre una red vial.
+
+El alcance se decide sobre `tipo_hecho` (cinco familias) y el **eje de
+categorías que se ve en el mapa es `subtipo_hecho`**: dentro de esas familias
+entran todos sus subtipos, 35 en total, sin lista escrita a mano que se
+desactualice. Filtrar por la columna gruesa *y además* mostrarla dejaría el mapa
+con cinco cajones y perdería la distinción que hace útil el análisis.
+
+**Se conservan (5 familias, 35 subtipos, 1 504 498 filas antes de limpiar):**
+
+| `tipo_hecho` | Filas | Subtipos principales |
+|---|---|---|
+| PATRIMONIO (DELITO) | 1 011 604 | hurto (513 283), robo (343 648), estafa, extorsión, receptación |
+| FALTAS | 189 432 | contra el patrimonio (96 215), contra las personas (88 322) |
+| SEGURIDAD PUBLICA (DELITO) | 108 902 | peligro común (93 192), salud pública |
+| LIBERTAD (DELITO) | 100 207 | violación de la libertad sexual (61 596), de la libertad personal (29 539) |
+| VIDA, EL CUERPO Y LA SALUD (DELITO) | 94 353 | lesiones (80 372), homicidio (12 146) |
+
+**Se descartan.** Los dos que importan, porque son los dos más numerosos del
+archivo:
+
+- **`INTERVENCION POLICIALES` (719 986).** No es delito: es actividad policial.
+  Sus subtipos son «visita realizada por medida de protección» (478 582),
+  «servicio policial efectuado» (138 459) y «control de identidad» (24 442).
+  Mide dónde patrulla la policía, no dónde ocurre el crimen. Además solo el
+  **5.8 %** está geocodificado.
+- **`LEY DE VIOLENCIA CONTRA LA MUJER Y GRUPOS VULNERABLES` (752 584).**
+  Violencia intrafamiliar. Ocurre en el domicilio y se geocodifica a la
+  vivienda de la víctima. Es el tipo más numeroso del archivo y, de entrar,
+  dominaría todos los hotspots midiendo dónde vive la gente. **Descartarlo es
+  una decisión sobre el alcance del método, no sobre la importancia del
+  fenómeno**: un análisis de violencia doméstica es legítimo, pero no es un
+  análisis sobre red vial.
+
+Y el resto: `LEY 30096 DELITOS INFORMATICOS` (83 944, sin lugar físico),
+`ADMINISTRACION PUBLICA` (32 331), `DENUNCIAS ESPECIALES` (8 309, que son
+pérdidas de documento y están geocodificadas al 0.2 %), `FE PUBLICA`,
+`FAMILIA`, `TRAFICO ILICITO DE DROGAS` (5 155: la coordenada es la de la
+intervención, no la del delito), y la treintena de tipos residuales con menos
+de 3 000 filas, incluidos los ~400 de la familia `MODALIDAD POLICIAL …`, que
+son artefactos de la taxonomía.
+
+### El recorte, en números
+
+| | Filas |
+|---|---|
+| Totales en el CSV | 3 137 220 |
+| Descartadas por calidad (`crimen_vacio`) | 106 |
+| **Excluidas por la fuente** — geo forzada al centroide de comisaría | **1 246 918** |
+| **Excluidas por la fuente** — centroides de relleno (117 puntos) | **218 632** |
+| Duplicadas (`id_dgc\|subtipo\|modalidad`) | 131 073 |
+| Filtradas por categoría | 647 961 |
+| Filtradas por ventana (anteriores a 2018) | 5 393 |
+| **Retenidas** | **887 137** |
+
+90 meses (2018-01 .. 2025-06), **35 tipos de delito**, 43 distritos. Los diez
+más numerosos, ya limpios:
+
+| | | | |
+|---|---|---|---|
+| HURTO 315 378 | ROBO 218 156 | FALTAS C. EL PATRIMONIO 65 439 | PELIGRO COMUN 61 484 |
+| FALTAS C. LAS PERSONAS 53 824 | LESIONES 45 276 | ESTAFA 32 059 | VIOLACION LIB. SEXUAL 28 670 |
+| VIOLACION LIB. PERSONAL 13 039 | RECEPTACION 11 988 | EXTORSION 10 479 | HOMICIDIO 5 587 |
+
+Las 5 393 filas anteriores a 2018 son errores de digitación en
+`fecha_hora_hecho`: hay hechos fechados en 1923, 1945, 1948, 1963, 1965 sobre
+denuncias registradas entre 2018 y 2025. El archivo se publica como «2018-25» y
+ese es su alcance real, así que la ventana empieza en 2018-01 y no tiene tope
+superior.
+
+### La cobertura se derrumba a partir de 2024-09
+
+Es la limitación más importante del dataset y **no se corrige filtrando**, así
+que conviene tenerla presente al leer cualquier serie temporal:
+
+| Año | Con coordenada | Sin coordenada | % geocodificado |
+|---|---|---|---|
+| 2018 | 284 041 | 23 133 | 92.5 % |
+| 2019 | 220 896 | 116 490 | 65.5 % |
+| 2020 | 212 860 | 104 146 | 67.1 % |
+| 2021 | 244 901 | 169 496 | 59.1 % |
+| 2022 | 283 654 | 169 192 | 62.6 % |
+| 2023 | 349 028 | 198 276 | 63.8 % |
+| 2024 | 179 606 | 337 096 | **34.8 %** |
+| 2025 | 16 430 | 218 596 | **7.0 %** |
+
+En el material retenido eso se traduce en un desplome de volumen mensual: de
+~19 000 hechos/mes en 2024-08 a ~1 700/mes desde 2024-11. **No es que baje el
+crimen: es que dejó de geocodificarse.** Los meses de 2024-09 en adelante
+existen en el dashboard porque el encargo era usar todos los años del archivo,
+pero sus hotspots descansan sobre una décima parte de la evidencia de los meses
+anteriores y no son comparables con ellos.
+
+### La red vial
+
+`Provincia de Lima, Peru` en OSM resuelve exactamente al ámbito del dataset —
+los 43 distritos, mismo bbox que las coordenadas. **135 633 nodos y 355 907
+aristas** en la red `drive` simplificada.
+
+### Resultado sobre Lima
+
+Con los mismos parámetros de campo que Chicago (σ = 120 m, α = 0.3,
+`f_min` = 0.10), sin recalibrar, pero con **K estadístico** en vez de top-20
+fijo:
+
+| | Chicago | Lima |
+|---|---|---|
+| Ventana | 2024-01 .. 2025-12 (24 meses) | 2018-01 .. 2025-06 (90 meses) |
+| Hechos retenidos | 213 389 | 887 137 |
+| Categorías (`subtipo_hecho`) | 4 | **35** |
+| Nodos de la red | 29 537 | 135 633 |
+| Snappeados a la red | 211 391 (99.1 %) | 882 279 (99.5 %) |
+| Criterio de K | `fixed` = 20 | `montecarlo`, α = 0.05, B = 99 |
+| Subgrafos por mes | 20 | **3 – 70** (mediana 46) |
+| Subgrafos extraídos | 480 | 4 160 |
+| Hechos capturados | 26 471 | 160 177 |
+| Cobertura | 12.52 % | 18.16 % |
+| Huella media por mes | 1 084 nodos (3.7 %) | 1 468 nodos (1.1 %) |
+| Densidad en hotspots | 2.82 cr/nodo | 1.21 cr/nodo |
+| *Lift* sobre la media de la ciudad | 9.6× | **16.8×** |
+| Ganancia sobre la línea base voraz | — | +19 909 (+14.2 %) |
+| Ganancia sobre anchura pura | — | +46 314 (+40.7 %) |
+
+Tres lecturas, y la primera es una advertencia:
+
+- **Las cifras de cobertura ya no son comparables entre las dos columnas.**
+  Chicago usa K = 20 fijo y Lima un K que va de 3 a 70; una cobertura mayor con
+  más regiones no dice nada sobre el método. Lo comparable entre ciudades es el
+  *lift*, y las ganancias sobre la línea base, que son internas al dataset y sí
+  se miden a igualdad de número de regiones y de huella (§7.1).
+- **El *lift* es 16.8× contra 9.6×.** Lima tiene 4.6 veces más nodos de red que
+  Chicago para 4.2 veces más hechos repartidos en 3.75 veces más meses, así que
+  la densidad absoluta de sus subgrafos es menor —1.21 contra 2.82 cr/nodo—. Lo
+  que es mayor es la concentración *relativa a su propio fondo*: la huella de
+  los hotspots es el **1.1 % de la red** y captura el **18 % del crimen**.
+- **K sigue al volumen sin quedar amarrado a él.** La correlación de Spearman
+  entre hechos del mes y número de hotspots es ρ = 0.66 (p = 2.5e-12): el
+  criterio reacciona al volumen, como debe, pero no es una función de él. El mes
+  más pobre de la serie —2019-10, con 331 hechos frente a una mediana de
+  10 748— sale con 3 hotspots; ninguno de los 90 meses toca el tope de 80, así
+  que `max_k` no está actuando como un K fijo encubierto.
+
+**§7.3 no se aplica a Lima.** Su tabla de valores esperados describe Chicago
+2024-2025, así que el bloque `reference:` solo existe en el dataset de Chicago.
+Sobre Lima, tanto el reporte de consola como la pestaña «Extracción» del
+dashboard omiten la columna «Esperado» —y también el aviso del ±2 %— en lugar
+de contrastar contra los números de otra ciudad. La comparación con la línea
+base sí se imprime siempre: esa es interna al dataset y siempre significa algo.
+
+## Sensibilidad de los parámetros sobre Lima
+
+```bash
+.venv/Scripts/python -m pipeline.cli calibrate --dataset lima
+```
+
+180 combinaciones —6 valores de σ × 5 de α × 6 de f_min— sobre los 90 meses, en
+8 minutos. Resultado:
+
+```
+RECOMENDADO   σ 120 m · α 0.2 · f_min 0.10
+              11.8 % cobertura · 1.15 cr/nodo · 1007 nodos/mes · lift 15.9x
+              frontera de Pareto: 85 configuraciones no dominadas
+              curvatura de la rodilla 0.510 (codo marcado)
+```
+
+**σ = 120 m sale de los datos de Lima igual que salía de los de Chicago**, y es
+el valor que §4.1 ya fijaba por criterio criminológico. Que dos ciudades con
+redes de tamaño muy distinto —29 537 y 135 633 nodos— converjan al mismo ancho
+de banda es el argumento más fuerte que hay a favor de ese parámetro: no está
+ajustado a una ciudad.
+
+La única discrepancia con `config.yaml` es α: el barrido pide 0.2 y el pipeline
+usa 0.3. No se cambia, y el reporte lo señala en cada ejecución. Cambiarlo
+rehace los 4 160 subgrafos y con ellos §7.3, la similitud y los estudios de
+caso; y el barrido dice también que **α mueve la cobertura solo un 15.5 %**, así
+que la diferencia entre 0.2 y 0.3 no es lo que decide nada.
+
+### `--sweep-months` no sirve para esto
+
+Se añadió un muestreo regular de meses pensando que el barrido completo sobre
+Lima costaría horas. Costó 8 minutos, así que la premisa era falsa. Y lo
+importante: **la submuestra cambia la respuesta**. Con 12 de los 90 meses el
+barrido recomendaba σ = 150 m; con los 90, σ = 120 m. El flag sigue en el CLI
+porque es útil para iterar mientras se toca el código, pero **ningún número
+publicable debe salir de él**.
+
+## Trayectorias y estudios de caso
+
+```bash
+.venv/Scripts/python -m pipeline.cli casestudies --dataset lima
+```
+
+Hasta aquí cada mes se extraía por separado y `2018-03_h07` y `2018-04_h11` eran
+dos objetos sin relación aunque fueran la misma esquina. `pipeline/trajectories.py`
+los enlaza, y de ese enlace salen las cuatro cantidades de la nota de tesis:
+
+| | |
+|---|---|
+| **Frequency(H)** | `#meses donde aparece / #meses analizados` |
+| **Intensity(H)** | crímenes del subgrafo en el mes |
+| **Stability(H)** | `1/(k−1) · Σ IoU(H_t, H_{t+1})` |
+| **Movement(H)** | `1/(k−1) · Σ d_G(seed_t, seed_{t+1})`, geodésica sobre la red |
+
+### Cómo se decide que dos subgrafos son «el mismo»
+
+Por **índice de Jaccard** sobre los nodos y no por recuento crudo de nodos
+compartidos, que es la otra opción que la nota menciona. El recuento premia a
+los grandes: dos regiones de 300 nodos que compartan 30 tendrían tanto en común
+como dos de 35 que compartan 30, y solo el segundo par es la misma esquina.
+
+**No se toman componentes conexas.** La tentación es construir el grafo «A se
+parece a B» sobre los 4 160 subgrafos y quedarse con sus componentes. No sirve:
+el enlace simple encadena. A solapa con B, B con C, y C puede estar a dos
+kilómetros de A; sobre 90 meses eso funde media ciudad en una trayectoria y la
+frecuencia resultante no significa nada. Se hace seguimiento en orden temporal
+—cada mes contra la última aparición de cada trayectoria activa, uno a uno y por
+IoU descendente—, que es el planteamiento estándar en seguimiento de objetos.
+
+Una trayectoria sobrevive `--max-gap` meses sin aparecer (3 por defecto). Sin
+eso, un hotspot que falta un mes se parte en dos trayectorias de frecuencia baja
+y la distinción que la nota quiere —«muy frecuente» frente a «resaltó por algo
+puntual»— mediría sobre todo el ruido mes a mes.
+
+`Stability` es `None` y no `0` cuando hay una sola aparición: no es que el sitio
+sea inestable, es que la pregunta no aplica. Con `0` caería en el cubo «muy
+móvil» y contaminaría el eje entero.
+
+### Los cuatro cubos
+
+Los cortes son las **medianas observadas**, no valores fijos: «frecuente» no
+significa lo mismo en una ventana de 24 meses que en una de 90, y fijar 0.5
+dejaría tres cubos vacíos. Se publican los cortes usados para que el reparto sea
+auditable.
+
+### Estudio 2 · topología de persistentes vs episódicos
+
+Se parte por **terciles** de frecuencia y no por la mediana: comparar el tercio
+de arriba contra el de abajo deja fuera la franja del medio, donde
+«persistente» y «episódico» no se distinguen y solo añadirían ruido.
+
+A las 12 dimensiones del descriptor se añaden las tres que la nota pedía y no
+estaban: `betweenness_mean`, `closeness_mean` e `intersection_density_km`. Se
+calculan **solo para el contraste**; meterlas en el descriptor cambiaría el
+embedding y la similitud ya publicada (§5.1). La intermediación se aproxima por
+muestreo de 50 fuentes en los subgrafos grandes: Brandes exacto sobre 4 160
+subgrafos de hasta 635 nodos son miles de millones de operaciones en Python.
+
+Se reporta **delta de Cliff** y no diferencia de medias ni d de Cohen: casi
+ningún descriptor es normal —las fracciones de grado y la densidad están
+acotadas, `log_n_nodes` está sesgado— y la d supone normalidad. Y se ordena por
+tamaño de efecto, no por valor p, con Benjamini-Hochberg sobre los quince
+descriptores. Con miles de subgrafos casi cualquier diferencia sale
+«significativa»; lo que decide si es interesante es cuánto se separan las
+distribuciones.
+
+**El contraste de POIs no puede ir sobre recuentos crudos.** Los persistentes
+son más grandes —`log_n_nodes` los separa con δ = 0.23 en Chicago—, así que
+«67.6 restaurantes frente a 11.8» mide tamaño y no función, que es exactamente
+lo que §7.1 advierte que no mide nada. Va sobre el cociente de localización
+cuando hay eje temporal, y sobre proporciones cuando no. Con esa corrección, lo
+que queda en Chicago es `per_node` (δ = 0.29) y `entropy_norm` (δ = 0.20): los
+hotspots persistentes son más densos en POIs y **más diversos funcionalmente**,
+no «tienen más de algo».
+
+### Estudio 3 · matching
+
+Pares en el 2 % de menor distancia estructural pero con `crimes(A) ≥ 3 · crimes(B)`.
+Se excluyen los pares que **solapan en el espacio** por encima del 5 %: dos
+recortes de la misma esquina no son un contraste, son el mismo sitio medido dos
+veces, y sin ese filtro la lista se llena de un hotspot grande contra sus
+propias versiones de otros meses. Se limita además a dos las veces que un mismo
+subgrafo puede aparecer, porque si no el caso más extremo copa la lista entera.
+
+### Resultados
+
+**Lima**, 90 meses, 4 160 subgrafos → **1 335 trayectorias**, de las cuales 611
+aparecen más de un mes y 724 una sola vez.
+
+| cubo | Lima | Chicago |
+|---|---|---|
+| frecuente + estable | 213 | 17 |
+| frecuente + móvil | 180 | 16 |
+| episódico + estable | 93 | 15 |
+| episódico + móvil | 125 | 16 |
+
+**La respuesta a «¿persistencia implica estabilidad espacial?» es que no.** Entre
+las trayectorias frecuentes de Lima, 213 son estables y 180 móviles: casi mitad
+y mitad. Un hotspot puede repetirse mes tras mes y estar desplazándose. Ese es
+justamente el hallazgo que el plano `Frequency × Stability` hace visible y que
+un ranking mensual de top-20 no puede mostrar.
+
+**Topología (Lima, 1 432 persistentes vs 1 538 episódicos).** Todos los efectos
+son pequeños —ningún |δ| llega a 0.2— y esa es la conclusión honesta: los
+persistentes son algo **más grandes** (`log_n_edges` δ = +0.19), con **más grado
+medio** (+0.16) y **menos densos** (−0.16), con menor intermediación (−0.17) y
+menor cercanía (−0.14). El patrón es coherente: subgrafos más extensos y
+ramificados, no calles individuales muy conectadas. Pero con δ < 0.2 la
+topología **no separa** persistentes de episódicos; hay solape casi total entre
+las dos distribuciones.
+
+**POIs (sobre el cociente de localización, Lima).** Aquí los efectos, aunque
+también pequeños, apuntan más claro:
+
+| | persistentes | episódicos | δ |
+|---|---|---|---|
+| `lq:finance` | 14.15 | 9.74 | +0.175 |
+| `per_node` | 2.33 | 1.68 | +0.146 |
+| `lq:retail` | 10.88 | 5.85 | +0.138 |
+| `entropy_norm` | 0.605 | 0.533 | +0.133 |
+
+Los hotspots persistentes están **más especializados en comercio y finanzas** y
+son **funcionalmente más diversos**. En Chicago sale lo mismo por la otra vía
+(`per_node` δ = 0.29, `entropy_norm` δ = 0.20). Que el entorno los separe algo
+mejor que la topología es un resultado, no un fallo: sugiere que lo que sostiene
+un hotspot en el tiempo es la actividad, no la forma de la calle.
+
+**Matching (Lima).** 25 pares con la misma forma y crimen ≥3×; el más extremo es
+`2019-04_h01` con 134 hechos frente a `2024-12_h24` con 3, un factor de 44.7 a
+distancia estructural 0.0. Son el material del tercer estudio de caso: dos
+calles indistinguibles en forma y radicalmente distintas en crimen.
+
+### σ = 120 m: ¿caminando o radio geográfico?
+
+**Caminando, o más exactamente: distancia sobre la red vial.** No es un radio
+geográfico y en ningún punto del pipeline se mide una distancia en línea recta
+entre un crimen y otro.
+
+El kernel se difunde con un **Dijkstra acotado** sobre el grafo de calles
+(`KernelCache.get` en `pipeline/density.py`): desde cada nodo fuente se recorren
+las aristas acumulando su longitud real, y el peso de un nodo a distancia `d` es
+`exp(−d² / 2σ²)`, con truncamiento en `r = 3σ = 360 m`. Dos portales separados
+por 30 m de fachada están a 30 m; los mismos dos portales en aceras opuestas de
+una avenida sin cruce cercano están a los metros que haya que andar hasta el
+cruce y volver. Por eso el campo no atraviesa manzanas ni cruza el río.
+
+**Con una salvedad que conviene declarar.** La red se descarga con
+`network_type: drive`, es decir, la red **circulable**. Sigue las calles, que es
+lo que importa, pero no incluye las conexiones exclusivamente peatonales:
+escaleras, pasajes, puentes peatonales. En Lima eso no es menor —las escaleras
+de los cerros de San Juan de Lurigancho o Villa María son trayectos peatonales
+reales que el grafo no ve—, así que en esas zonas la distancia del modelo
+sobreestima la que un peatón recorrería. Cambiarlo es un parámetro
+(`network.network_type: walk`), no un cambio de método, pero rehace la red y
+todos los artefactos que cuelgan de ella.
+
+Que σ esté en metros de calle y no de mapa es también lo que hace legítimo
+compararlo con la criminología ambiental: 120 m es aproximadamente una cuadra
+corta *andando*, que es la escala a la que se argumenta que opera la
+oportunidad delictiva.
+
+### POIs: instantáneas anuales de Geofabrik
+
+Los POIs de Lima **no vienen de Overpass**. Overpass acabó limitando por cuota la
+IP desde la que se ejecutaba, y el polígono de la Provincia de Lima es lo
+bastante grande como para agotarla; el dataset estuvo tres días sin perfil
+funcional por depender de un servicio interactivo con racionamiento.
+
+Geofabrik publica el extracto de cada país como fichero estático, y además
+guarda **una instantánea por cada 1 de enero desde 2014**:
+
+```
+https://download.geofabrik.de/south-america/peru-180101.osm.pbf   77 MB
+https://download.geofabrik.de/south-america/peru-250101.osm.pbf  227 MB
+```
+
+Sin cuota, con URL fija y citable, y con el mismo resultado en cada ejecución.
+Se lee con `osmium` —nodos y vías, porque un colegio o un parque son polígonos—
+y se clasifica con la **misma** `poi_taxonomy.yaml` que Chicago. Cobertura sobre
+Lima: **0.4 % sin mapear**, mejor que sobre Chicago. El YAML no hubo que tocarlo.
+
+Se configura por dataset:
+
+```yaml
+pois:
+  source: geofabrik
+  region: south-america/peru
+  years: [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+```
+
+Chicago sigue en `overpass`: su `pois.bin` ya estaba generado y validado, y
+cambiarle la fuente movería los números de §7.3 sin que eso mida nada.
+
+### El eje temporal, y la trampa que trae
+
+Con `years`, cada subgrafo se caracteriza contra la instantánea de **su propio
+año** en vez de describir un hotspot de 2018 con el mapa de 2026. Se usa la del
+*inicio* del año, no la del final, para no meter información del futuro.
+
+Pero el histórico de OSM registra **cuándo alguien mapeó algo**, no cuándo
+abrió. Sobre Lima eso no es teórico:
+
+| categoría | 2018 | 2025 | × |
+|---|---|---|---|
+| retail | 10 251 | 12 108 | 1.2 |
+| food | 6 329 | 9 749 | 1.5 |
+| park | 11 017 | 22 118 | 2.0 |
+| **education** | 3 792 | **13 029** | **3.4** |
+
+Repartiendo `education` por año de edición, **6 089 objetos en 2018 y 3 680 en
+2019** de 13 029 —el 75 % de la categoría en dos años—, con `amenity=school`
+(6 015) y `amenity=kindergarten` (5 873) casi 1:1. Es el volcado de un padrón
+escolar. Ninguna otra categoría tiene esa firma: `food` reparte 750/932/593 en
+esos mismos años.
+
+**Por eso el perfil temporal no se lee en recuentos.** El contraste se hace por
+cociente de localización contra la ciudad *del mismo año*, y **con la red como
+base**, no con el total de POIs:
+
+$$LQ_c(H) = \frac{n_c(H)\,/\,N_c(t)}{|H|\,/\,|G|}$$
+
+La versión clásica del cociente, `(n_c/n) / (N_c/N)`, **no vale aquí**, y esto
+se midió en vez de suponerlo: una importación que multiplica por 4 una sola
+categoría mueve `n` y `N` en proporciones distintas según la composición de la
+zona, y el cociente se desplaza de **2.00 a 1.37**. Amortigua la proporción
+cruda —que se va de 0.57 a 0.84— pero no la cancela.
+
+Con la red como base sí se cancela exactamente: la importación multiplica
+`n_c(H)` y `N_c(t)` por el mismo factor, su cociente no se mueve, y el número de
+nodos no depende de OSM. Está verificado en `pipeline/features/pois.py` para los
+dos casos —importación de una categoría y crecimiento uniforme del mapeo—.
+
+Como cualquier hotspot es una zona densa, ese `LQ` vale ~20x en todas las
+categorías y no distingue unas zonas de otras. El dashboard muestra por eso la
+**especialización relativa**, `LQ_c` dividido por la mediana de la propia zona,
+que centra en 1; sigue siendo invariante porque los términos de red se cancelan
+al dividir. El recuento crudo y el `LQ` absoluto quedan en el `title`.
+
+Lo que sí se comprobó que **no** ocurre es el sesgo que haría el eje inservible:
+que el mapeo creciera con la renta, que es el mismo gradiente que predice el
+crimen. Ocurre lo contrario.
+
+| zona (3.9 × 3.9 km) | 2018 | 2025 | × |
+|---|---|---|---|
+| Miraflores (rico) | 2 470 | 3 436 | 1.4 |
+| San Juan de Lurigancho (periférico) | 583 | 1 212 | **2.1** |
+| Villa El Salvador (periférico) | 1 424 | 1 811 | 1.3 |
+
+### Reejecutar
+
+```bash
+.venv/Scripts/python -m pipeline.cli pois     --dataset lima --force
+.venv/Scripts/python -m pipeline.cli features --dataset lima
+.venv/Scripts/python -m pipeline.cli export   --dataset lima
+.venv/Scripts/python scripts/build_datasets_index.py
+```
+
+Los `.osm.pbf` se cachean en `data/interim/osm/` (1.3 GB las ocho) y no se
+vuelven a descargar. La ingesta entera son unos 4 minutos.
+
+### Lo que se rompió en el ingestor de Overpass
+
+Perseguir aquella descarga bloqueada destapó cuatro fallos reales.
+Se dejan documentados y arreglados aunque Lima ya no use esa vía,
+porque Chicago sí la usa.
+
+El origen: durante tres días los POIs de Lima **no se pudieron descargar**.
+Overpass acabó limitando por cuota la IP desde la que se ejecutaba, y el
+polígono de la Provincia de Lima es lo bastante grande como para agotarla
+rápido. Ese bloqueo es lo que motivó pasar a Geofabrik, que ya no depende de un
+servicio interactivo; pero Chicago sigue usando esta vía, así que los cuatro
+fallos que salieron por el camino importan igual. Están arreglados:
+
+1. **User-Agent.** OSMnx se identifica con una cadena genérica.
+   `overpass.kumi.systems` responde a eso con `429` y el texto «Please include
+   a meaningful User-Agent string with your requests to avoid rate-limiting», y
+   `overpass-api.de` con `406`. OSMnx interpreta el `429` como «servidor
+   ocupado», espera y reintenta *dentro de la misma llamada*, así que el
+   síntoma no era un error sino media hora sin avanzar y sin explicación.
+   Ahora se envía un agente que identifica al proyecto.
+
+2. **Un espejo regional colado entre los mundiales.** `overpass.osm.ch` sirve
+   una base de Suiza: devuelve `200` con **cero elementos** a cualquier
+   consulta sobre Lima. Un espejo que falla se reintenta en otro; uno que
+   contesta «no hay nada» se cree, y el análisis sale adelante sin POIs y sin
+   avisar. Está fuera de la lista, con el porqué escrito al lado para que no
+   vuelva a entrar.
+
+3. **El pinado de IP sin failover.** OSMnx fija *una* dirección por host
+   (`_http._config_dns`) parcheando `socket.getaddrinfo`, para que la consulta
+   de cuota y la consulta real caigan en la misma máquina. La elige con
+   `socket.gethostbyname`, que devuelve la primera del registro sin comprobar
+   si responde. `overpass-api.de` publica dos direcciones y desde esta red solo
+   una acepta conexiones: cuando el resolutor devolvía primero la muerta, todas
+   las peticiones morían en un `ConnectTimeout` idéntico de 102 s — y el propio
+   parche de `getaddrinfo` era lo que impedía a urllib3 pasar a la segunda.
+   Ahora se sondea cada dirección con una conexión TCP corta antes de fijarla.
+
+4. **Ni presupuesto ni plan B.** Una sola instancia, sin reintentos, sin límite
+   de reloj y sin alternativa si el polígono no entra de una pieza. Ahora hay
+   rotación entre espejos con *backoff*, un presupuesto de 15 minutos por llave
+   —`features` calcula los embeddings *antes* de bajar POIs, y no puede quedarse
+   colgado indefinidamente detrás de una descarga opcional— y un plan B que
+   pide la llave por celdas de una rejilla 4×4 recortadas contra el polígono
+   real cuando la consulta completa devuelve `InsufficientResponseError`.
+
+Y una bandera nueva, `--no-pois`, para `features` y `export`: los POIs son el
+único paso que depende de un servicio ajeno y el único que puede tardar media
+hora o fallar por cuota. Con la bandera, las tres horas de embeddings no quedan
+detrás de él.
+
+---
+
+## Cuántos hotspots por mes: K adaptativo
+
+`top_k = 20` fijo tiene un problema concreto: obliga al mismo número de
+hotspots en un mes tranquilo y en uno con un brote. Si en enero hay ocho
+concentraciones reales, el top-20 rellena con doce regiones que no son nada; si
+en julio hay veinticinco, se pierden cinco. **El número de hotspots deja de ser
+un resultado y pasa a ser un parámetro.**
+
+`pipeline/selection.py` ofrece tres criterios, en `hotspots.selection.method`:
+
+| | Qué hace | Coste |
+|---|---|---|
+| `fixed` | los `top_k` de siempre | — |
+| `percentile` | el decil superior de las candidatas **de ese mes** | gratis |
+| `montecarlo` | significancia contra distribución nula | ~6 s/mes con B=99 |
+
+`montecarlo` sigue a Kulldorff (1997) y su adaptación a red vial de Shiode &
+Shiode (2020): se simulan `replicates` realizaciones del mes bajo la hipótesis
+nula, se toma de cada una el estadístico **máximo**, y sobrevive toda región
+observada cuyo estadístico supere ese máximo con probabilidad menor que
+`alpha_sig`. Comparar contra el máximo por réplica —y no contra la distribución
+de todas las regiones nulas— es lo que hace que **no haga falta corregir por
+test múltiple**: el estadístico ya es el del extremo, así que el error de tipo I
+queda controlado a nivel de familia.
+
+### El estadístico no puede ser el crimen capturado
+
+Éste fue el error que el propio nulo destapó, y merece quedar escrito porque es
+sutil y silencioso.
+
+Las regiones se **ordenan** por crimen capturado, y eso es correcto: el objetivo
+declarado es cubrir crimen real (§4.2). Pero usar esa misma cantidad como
+estadístico de contraste no funciona. Al repartir el crimen uniformemente por
+la red, el campo se queda sin estructura, el extractor devuelve unas pocas
+regiones enormes y cada una captura cientos de crímenes por puro tamaño. El
+máximo nulo salía **mayor que cualquier región observada** y nada resultaba
+significativo:
+
+```
+nulo uniforme, estadístico = crimen capturado
+  media 192   p95 261   max 291        <- contra hotspots observados de ~55
+```
+
+El fallo no estaba en el nulo sino en el estadístico: comparaba concentración
+contra tamaño. La log-razón de verosimilitud de Poisson normaliza por el tamaño
+esperado,
+
+$$\Lambda = n_Z \log\frac{n_Z}{\lambda_Z} + (n_G - n_Z)\log\frac{n_G - n_Z}{n_G - \lambda_Z},
+\qquad \lambda_Z = n_G\,\frac{|Z|}{|N|}$$
+
+que es exactamente lo que Shiode & Shiode hacen con la longitud de su ventana
+(ec. 1). Aquí $|Z|$ se mide en **nodos** y no en metros, porque el campo vive
+sobre nodos: bajo el nulo cada nodo es igual de probable, así que el número de
+nodos *es* la población en riesgo de la región. Con eso el nulo cae a media 23
+y el contraste discrimina.
+
+### Los dos nulos no responden a la misma pregunta
+
+| | Pregunta | Chicago, hotspots/mes |
+|---|---|---|
+| `uniform` | ¿más concentrado que si el crimen cayera al azar sobre la ciudad? Es el nulo del paper. | **3 – 11** |
+| `permutation` | ¿más concentrado que si la misma cantidad de crimen se repartiese entre los sitios donde de hecho pasa algo? | **1 – 3** |
+
+El primero mide concentración contra la geografía; el segundo, contra la
+oportunidad, y condiciona sobre dónde hay portales, comercios y gente. El
+segundo es mucho más exigente: sobre Chicago deja uno o dos hotspots por mes.
+
+### Cuántos salen sobre Lima, y el tope que había que subir
+
+Medido sobre seis meses repartidos por la ventana, con las 118-318 regiones
+candidatas que produce el extractor:
+
+| mes | candidatas | `uniform` | `permutation` | `percentile` 0.90 |
+|---|---|---|---|---|
+| 2018-01 | 243 | 51 | 2 | 25 |
+| 2019-06 | 318 | 48 | 2 | 34 |
+| 2021-03 | 308 | 40 | 2 | 31 |
+| 2023-05 | 242 | 54 | 2 | 26 |
+| 2024-08 | 118 | 62 | 1 | 12 |
+| 2025-03 | 230 | 36 | 1 | 23 |
+
+Dos cosas que esta tabla resuelve:
+
+1. **El tope `max_k` estaba puesto en 50 y saturaba.** En la primera corrida, 16
+   de los 30 primeros meses tocaban el tope, con lo que `max_k` volvía a ser un
+   K fijo disfrazado — justo lo que el criterio existe para evitar. Con
+   `max_k: 80` el rango real es 36-62 y nada lo toca.
+
+2. **El nulo del paper es permisivo sobre Lima.** Ochenta mil crímenes al mes
+   sobre 135 633 nodos están tan lejos de repartirse uniformemente que casi
+   cualquier concentración es significativa. `permutation` —que condiciona sobre
+   dónde hay oportunidad— deja uno o dos por mes; `percentile` cae en medio.
+   Los tres son defendibles y responden a preguntas distintas; el configurado es
+   `uniform` por ser el del paper.
+
+### Qué se configuró y por qué
+
+- **Lima: `montecarlo` / `uniform`, B=99, α=0.05.** No tiene tabla de referencia
+  contra la que validar, así que el número de hotspots de cada mes sale de los
+  datos.
+- **Chicago: `fixed`, a propósito.** §7.3 tabula sus valores esperados para
+  top-20 (480 subgrafos en 24 meses) y es el dataset con el que se valida el
+  pipeline. Cambiarle el criterio invalidaría esa comparación: el contraste
+  mediría el cambio de criterio, no el del método. Para probarlo aquí basta
+  `selection.method: montecarlo` en su bloque, sabiendo que `reference` deja de
+  aplicar.
+
+La línea base recibe **tantas regiones como sacó el extractor ese mes**, no
+`top_k`. Con K adaptativo el número de hotspots es un resultado del mes; dejar
+la base en 20 fijas mientras el topológico saca 5 compararía cobertura entre
+familias de tamaño distinto, que es justo lo que §7.1 advierte que no mide nada.
+
+---
+
+## Validación con datos sintéticos
+
+```bash
+.venv/Scripts/python -m pipeline.cli benchmark --dataset chicago \
+    --realisations 10 --parents 15 --offspring 200 --background 400
+```
+
+Réplica del experimento de **Shiode & Shiode (2020), §3 y §5**. Es la única
+métrica **absoluta** del proyecto: cobertura, densidad y ganancia sobre la línea
+base dicen que el extractor captura más crimen que hacer crecer regiones a lo
+bruto, pero ninguna dice si acierta *dónde está* el hotspot, porque sobre datos
+reales no hay verdad conocida.
+
+Se siembran concentraciones en aristas elegidas al azar (proceso de Poisson por
+clústeres: padres → hijos → fondo uniforme), se le pasa el resultado al
+extractor sin decirle nada, y se mide contra la verdad:
+
+$$PPV = \frac{\#\{r_i \in S^* \cap S_{true}\}}{\#\{r_j \in S^*\}}
+\qquad
+Sens = \frac{\#\{r_i \in S^* \cap S_{true}\}}{\#\{r_j \in S_{true}\}}$$
+
+`PPV` mide **sobredisparo**; `Sens` —el paper la llama *specificity*— mide
+**subdisparo**. Cada una por separado se maximiza haciendo trampa: marcar toda
+la ciudad da sensibilidad 1, marcar un solo nodo acertado da PPV 1. Por eso se
+leen juntas, y se añade F1.
+
+### Dos adaptaciones que hay que declarar
+
+1. **La red se recorta.** Shiode no corre el experimento sobre Buffalo entera
+   sino sobre 900 m × 750 m con 394 puntos de referencia y 14 segmentos
+   sembrados: casi el 4 % de la red. Repetir sus 300 puntos sobre una ciudad
+   completa cambia el experimento —30 nodos sembrados entre 29 832 son el 0.1 %,
+   con un fondo tan diluido que **todos los métodos aciertan** y el resultado no
+   mide nada. `--subnetwork 400` devuelve la relación señal/ruido a la que el
+   experimento estaba pensado. Se comprobó: sobre la ciudad entera los tres
+   métodos dan sensibilidad 1.000 y PPV 0.215 idéntico.
+
+2. **La verdad son nodos, no segmentos continuos.** El paper coloca los hijos a
+   lo largo de la arista y mide contra puntos de referencia cada 30 m; aquí el
+   campo vive sobre nodos, así que un hijo cae en uno de los dos extremos de su
+   arista y `Strue` son esos extremos. Los números **no** son comparables con la
+   Tabla 1 del paper, solo entre los métodos que se comparan aquí.
+
+### Resultado 1 · σ es lo que controla el sobredisparo
+
+Chicago, subred de 400 nodos, 15 aristas sembradas, 200 hijos, 400 de fondo,
+8 realizaciones, criterio `fixed`:
+
+| σ (m) | PPV topo | Sensibilidad | F1 | Nodos marcados |
+|---|---|---|---|---|
+| 40 | **0.290** | 0.996 | 0.444 | 107 |
+| 60 | 0.186 | 1.000 | 0.310 | 172 |
+| 90 | 0.122 | 1.000 | 0.216 | 247 |
+| **120** (spec) | 0.095 | 1.000 | 0.173 | **311** |
+| 180 | 0.079 | 1.000 | 0.146 | 373 |
+
+La sensibilidad se mantiene en ~1.0 en todo el rango: **bajar σ no cuesta
+detección, solo reduce el área marcada de más**. Con σ = 120 m el método marca
+311 nodos de 400 para localizar 29 verdaderos; con σ = 40 m marca 107.
+
+Es el mismo reproche que Shiode hace a los métodos planares —«tend to
+over-represent cluster locations»— y aquí queda cuantificado sobre nuestro
+propio extractor. §4.1 fija σ = 120 m por criterio criminológico (≈ una cuadra
+corta) y ese sigue siendo el valor del pipeline; lo que el experimento añade es
+que **ese valor está elegido para capturar crimen, no para localizarlo**, y que
+si el objetivo fuera señalar la cuadra exacta habría que bajarlo.
+
+### Resultado 2 · en localización exacta, el extractor no bate a la línea base
+
+Con σ = 120 m y criterio fijo, sobre 10 realizaciones:
+
+| Método | PPV | CV | Sensibilidad | F1 |
+|---|---|---|---|---|
+| topológico | 0.094 | 0.06 | 1.000 | 0.172 |
+| voraz | 0.104 | 0.08 | 0.986 | **0.189** |
+| anchura | 0.093 | 0.10 | 0.918 | 0.169 |
+
+La U de Mann-Whitney sobre F1 da p = 0.011 a favor del **voraz**. No es un
+error: la verdad sintética son picos puntuales sobre aristas, que es
+exactamente lo que persigue una línea base que crece desde los nodos más
+calientes. Lo que el extractor topológico gana según §7.2 es **crimen
+capturado sobre datos reales**, que es otra cosa. El benchmark separa las dos
+preguntas y conviene no confundirlas al escribir la tesis:
+
+- *¿Captura más crimen?* Sí, +23.4 % sobre la línea base voraz (Lima).
+- *¿Localiza mejor la cuadra exacta?* No, con σ = 120 m no.
+
+### Resultado 3 · el K adaptativo reduce el sobredisparo
+
+Mismo experimento, cambiando solo el criterio de selección:
+
+| Régimen | PPV con `fixed` | PPV con `montecarlo` |
+|---|---|---|
+| 400 nodos, 15 padres, fondo 100 | 0.222 | 0.211 |
+| 400 nodos, 15 padres, fondo 400 | 0.094 | **0.152** |
+| 400 nodos, 40 padres, fondo 400 | 0.241 | **0.295** |
+| 400 nodos, 40 padres, fondo 1200 | 0.190 | **0.294** |
+| 150 nodos, 14 padres, fondo 100 | 0.237 | **0.357** |
+
+Cuanto más ruido de fondo, más gana el criterio estadístico: con K fijo el
+método está obligado a devolver 20 regiones aunque solo haya 15 concentraciones,
+y las que sobran crecen sin control cuando el campo se vuelve difuso. Se midió
+el caso extremo sobre la ciudad entera con fondo 30 000: la huella media por
+región pasa de 9 nodos a **687**. El coste del K adaptativo es sensibilidad
+—deja de marcar concentraciones débiles—, que es el intercambio esperado.
+
+### Salidas
+
+`data/processed/<ciudad>/benchmark_synthetic.json` y
+`dashboard/public/data/<ciudad>/benchmark.json`, con las métricas por
+realización, los agregados (media, desviación, coeficiente de variación como la
+Tabla 1 del paper) y la U de Mann-Whitney por pares (Tabla 2).

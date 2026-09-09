@@ -1,0 +1,47 @@
+{
+  "default": "chicago",
+  "datasets": [
+    {
+      "id": "chicago",
+      "label": "Chicago",
+      "sublabel": "Illinois, EE. UU.",
+      "dir": "chicago",
+      "place": "Chicago, Illinois, USA",
+      "n": 213389,
+      "window": "2024-01 .. 2025-12",
+      "months": 24,
+      "categories": 4,
+      "has": [
+        "benchmark.json",
+        "casestudies.json",
+        "evaluation.json",
+        "hotspots.geojson",
+        "param_sweep.json",
+        "pois.bin",
+        "similarity.json",
+        "snapping.bin"
+      ]
+    },
+    {
+      "id": "lima",
+      "label": "Lima Metropolitana",
+      "sublabel": "Provincia de Lima, Perú",
+      "dir": "lima",
+      "place": "Provincia de Lima, Peru",
+      "n": 887137,
+      "window": "2018-01 .. 2025-06",
+      "months": 90,
+      "categories": 35,
+      "has": [
+        "benchmark.json",
+        "casestudies.json",
+        "evaluation.json",
+        "hotspots.geojson",
+        "param_sweep.json",
+        "pois.bin",
+        "similarity.json",
+        "snapping.bin"
+      ]
+    }
+  ]
+}

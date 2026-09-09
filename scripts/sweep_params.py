@@ -60,7 +60,7 @@ def evaluate(months, fields, g, counts, cat_counts, alpha, fmin, k):
     """Agrega las cuatro métricas de §7.1 para una combinación."""
     cap = nodes = n_hs = 0
     for m in months:
-        hs = extract_month(m, fields[m], g, counts[m], cat_counts[m],
+        hs, _ = extract_month(m, fields[m], g, counts[m], cat_counts[m],
                            alpha=alpha, f_min_ratio=fmin, top_k=k)
         cap += sum(h.crimes for h in hs)
         nodes += sum(h.n_nodes for h in hs)
@@ -90,21 +90,26 @@ def pareto_front(rows: list[dict]) -> list[int]:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--quick", action="store_true", help="malla reducida (3×3×3)")
-    p.add_argument("--out", type=Path,
-                   default=ROOT / "dashboard" / "public" / "data" / "param_sweep.json")
+    p.add_argument("--dataset", default=None,
+                   help="ciudad a barrer (bloque de `datasets:` en config.yaml)")
+    # Por defecto escribe en la carpeta del dataset, no en la raiz de `data/`:
+    # el barrido es de una ciudad concreta y machacar el de la otra dejaria al
+    # dashboard mostrando una frontera de Pareto que no es la suya.
+    p.add_argument("--out", type=Path, default=None)
     args = p.parse_args()
 
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)-7s %(name)-16s %(message)s")
     t0 = time.perf_counter()
-    cfg = load_config()
+    cfg = load_config(dataset=args.dataset)
     paths = Paths.from_config(cfg).ensure()
+    out_path = args.out or (cfg.dashboard_data / "param_sweep.json")
 
     sigmas = QUICK["sigmas"] if args.quick else SIGMAS
     alphas = QUICK["alphas"] if args.quick else ALPHAS
     fmins = QUICK["fmins"] if args.quick else FMINS
 
-    arr, months, cats, report = _load_crimes(cfg)
+    arr, months, cats, report = _load_crimes(cfg, paths)
     H, _, snapped, _ = _snap(cfg, paths, arr, force=False)
     g = to_csr(H)
     counts, cat_counts, n_snapped = _node_counts(g, snapped, arr, months, cats)
@@ -187,9 +192,9 @@ def main() -> int:
         "grid": grid,
         "k_sweep": k_sweep,
     }
-    save_json(args.out, payload, indent=None)
+    save_json(out_path, payload, indent=None)
     logger.info("Escrito %s (%d combinaciones, %d en la frontera de Pareto) en %.0f s",
-                args.out, len(grid), len(front), time.perf_counter() - t0)
+                out_path, len(grid), len(front), time.perf_counter() - t0)
 
     best_cov = max(grid, key=lambda r: r["coverage"])
     best_dens = max(grid, key=lambda r: r["density"])

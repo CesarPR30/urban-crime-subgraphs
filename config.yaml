@@ -3,53 +3,245 @@
 # Nada de constantes mágicas en el código (PROJECT_SPEC §10): σ, α, K, f_min,
 # el buffer de POIs, los pesos de fusión y las dimensiones del embedding viven
 # aquí. Los valores por defecto son los que fija la especificación.
+#
+# ## Multi-dataset
+#
+# Todo lo que depende de la ciudad vive bajo `datasets:`; el resto del archivo
+# son los parámetros del método, compartidos. Un bloque de dataset puede
+# sobrescribir *cualquier* sección de nivel superior (no solo `data` y
+# `network`): la fusión es recursiva, así que si una ciudad necesita otro σ o
+# otro α basta con redeclararlo dentro de su bloque.
+#
+#     crimepipe <paso> --dataset lima
+#
+# `active_dataset` es solo el valor por defecto de `--dataset`.
 
 project:
   name: urban-crime-subgraphs
   random_state: 42          # todo lo estocástico toma su semilla de aquí
 
-# ─── Fuentes de datos ──────────────────────────────────────────────────────
+active_dataset: chicago
+
+datasets:
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Chicago — portal de datos abiertos de la ciudad.
+  # ═══════════════════════════════════════════════════════════════════════════
+  chicago:
+    label: Chicago
+    sublabel: Illinois, EE. UU.
+
+    data:
+      crimes_csv: data/raw/Crimes_-_2001_to_Present_20260822.csv
+      interim_dir: data/interim/chicago
+      processed_dir: data/processed/chicago
+      source_profile: chicago
+
+      # Ventana de trabajo (§3.1). null = sin límite por ese extremo.
+      month_from: "2024-01"
+      month_to: "2025-12"
+
+      # Categorías de análisis (§3.1). null = todas.
+      categories:
+        - THEFT
+        - ASSAULT
+        - ROBBERY
+        - MOTOR VEHICLE THEFT
+
+      # Clave de deduplicación: auto | id | content | none.
+      # `content` colapsa incidentes distintos que comparten manzana y hora
+      # reportada, porque la fuente geocodifica al centroide del bloque.
+      dedupe: auto
+
+    # Chicago se queda con el K fijo **a propósito**: §7.3 tabula sus valores
+    # esperados para top-20 (480 subgrafos en 24 meses), y es el dataset con
+    # el que se valida el pipeline. Cambiarle el criterio de selección
+    # invalidaría esa comparación —el contraste mediría el cambio de criterio,
+    # no el del método—. Para probar el K adaptativo aquí, poner
+    # `selection.method: montecarlo` y tener presente que la tabla de
+    # `reference` deja de aplicar.
+    hotspots:
+      selection:
+        method: fixed
+
+    network:
+      place: "Chicago, Illinois, USA"
+      cache: data/interim/chicago/network.graphml
+
+    pois:
+      cache: data/interim/chicago/pois.parquet
+
+    # Tabla de validación de §7.3. Es propiedad **del dataset**, no del método:
+    # §7.3 tabula lo que debe salir sobre Chicago 2024-2025 con σ=120, α=0.3,
+    # K=20. Una ciudad sin este bloque —Lima— no tiene contra qué contrastarse,
+    # y los reportes omiten la columna «Esperado» en vez de restar contra los
+    # números de otra ciudad y publicar un delta con formato impecable y sin
+    # significado.
+    reference:
+      crimes_snapped: 213602
+      network_nodes: 29537
+      hotspots: 480
+      crimes_captured: 26645
+      coverage: 0.125
+      nodes_in_hotspots: 8562
+      density_hotspots: 3.11
+      hottest_node_crimes: 59
+      # Línea base voraz (§7.2), contra la que se mide la ganancia.
+      baseline_captured: 23064
+      baseline_coverage: 0.108
+      baseline_density: 3.02
+      gain_absolute: 3581
+      gain_relative: 0.155
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Lima Metropolitana — denuncias PNP consolidadas por la DGIS (2018-2025).
+  #
+  # El CSV trae 58 columnas y 3 137 220 filas; el pipeline solo necesita siete.
+  # Las tres decisiones de limpieza que importan están documentadas abajo y en
+  # `pipeline/ingest/profiles.py`.
+  # ═══════════════════════════════════════════════════════════════════════════
+  lima:
+    label: Lima Metropolitana
+    sublabel: Provincia de Lima, Perú
+
+    data:
+      crimes_csv: data/raw/delitos_lima_metropolitana_completo_2018-25.csv
+      interim_dir: data/interim/lima
+      processed_dir: data/processed/lima
+      source_profile: lima
+
+      # Todos los años del dataset. Las ~5 300 filas anteriores a 2018 son
+      # errores de digitación en `fecha_hora_hecho` (hay hechos fechados en
+      # 1923, 1945, 1965…) sobre denuncias registradas entre 2018 y 2025: el
+      # archivo se publica como «2018-25» y ese es su alcance real.
+      month_from: "2018-01"
+      month_to: null
+
+      # Sin recorte adicional: el eje de categorías es `subtipo_hecho` —hurto,
+      # robo, extorsión, lesiones, homicidio…— y se muestran **todos** los
+      # subtipos de las familias admitidas. El alcance se decide una sola vez,
+      # sobre `tipo_hecho`, en `cleaning.keep_where`.
+      #
+      # Esto es deliberado y corrige un error de granularidad. `tipo_hecho`
+      # tiene 52 valores tan gruesos que PATRIMONIO (DELITO) mete en la misma
+      # caja hurto, robo, extorsión y estafa; el nivel equivalente al
+      # `Primary Type` de Chicago (THEFT, ROBBERY, ASSAULT) es `subtipo_hecho`.
+      # Filtrar aquí por las cinco familias dejaría el mapa con cinco cajones y
+      # perdería justamente la distinción que hace útil el análisis.
+      categories: null
+
+      # `id_dgc` no es único: 164 803 identificadores traen entre 2 y 9 filas
+      # que solo difieren en `objectid` (clave subrogada del ETL). No son
+      # delitos distintos —comparten fecha, coordenada, subtipo, modalidad y
+      # hasta la hora de registro—, así que se colapsan. El perfil `lima`
+      # construye el uid como id_dgc|subtipo|modalidad para no perder la
+      # denuncia que sí registra dos hechos distintos bajo un mismo `id_dgc`.
+      dedupe: id
+
+      cleaning:
+        # ── 0. Alcance del estudio ──────────────────────────────────────────
+        # Las cinco familias de `tipo_hecho` cuyo hecho ocurre *en la vía
+        # pública* y por tanto tienen sentido sobre una red vial. Dentro de
+        # ellas entran todos sus subtipos, que son los que se ven en el mapa.
+        #
+        # El alcance se filtra aquí, sobre la columna gruesa, y no en
+        # `categories`, sobre la fina: así la lista de tipos visibles no hay
+        # que mantenerla a mano ni se queda desactualizada cuando la PNP añade
+        # un subtipo.
+        #
+        # Quedan fuera, entre otros:
+        #
+        #   INTERVENCION POLICIALES (719 986)  no es delito sino actividad
+        #       policial —visitas por medida de protección, servicio policial
+        #       efectuado, control de identidad— y solo el 5.8 % está geocodificado.
+        #   LEY DE VIOLENCIA CONTRA LA MUJER … (752 584)  violencia intrafamiliar:
+        #       ocurre en el domicilio y se geocodifica a la vivienda de la
+        #       víctima. Es el tipo más numeroso del archivo y, de entrar,
+        #       dominaría todos los hotspots midiendo dónde vive la gente y no
+        #       dónde ocurre el crimen en la calle.
+        #   LEY 30096 DELITOS INFORMATICOS (83 944)  no tiene lugar físico.
+        #   ADMINISTRACION PUBLICA, FE PUBLICA, FAMILIA, DENUNCIAS ESPECIALES
+        #       (pérdida de documento), TRAFICO ILICITO DE DROGAS —la coordenada
+        #       es la de la intervención, no la del delito— y la treintena de
+        #       tipos residuales con menos de 3 000 filas.
+        keep_where:
+          tipo_hecho:
+            - PATRIMONIO (DELITO)                  # hurto, robo, extorsión, receptación, estafa, daños
+            - FALTAS                               # faltas contra el patrimonio y las personas
+            - SEGURIDAD PUBLICA (DELITO)           # peligro común, salud pública
+            - VIDA, EL CUERPO Y LA SALUD (DELITO)  # lesiones, homicidio, aborto
+            - LIBERTAD (DELITO)                    # violación de la libertad personal y sexual
+
+        # ── 1. Geocodificación falsa ────────────────────────────────────────
+        # 1 246 941 filas (39.7 %) llevan `observacion = GEO FORZADA AL
+        # CENTROIDE DE COMISARIA`: no se pudo geocodificar la dirección y se
+        # las colocó en la comisaría que tomó la denuncia. Esas filas traen
+        # lat/lon rellenos —así que validar la coordenada no las detecta— pero
+        # se reparten sobre **129 puntos**, 9 666 filas por punto de media.
+        # Sobre un KDE de σ = 120 m cada comisaría sería el hotspot más intenso
+        # de la ciudad. Se descartan.
+        #
+        # El filtro correcto es `observacion`, no `estado_coord`: las 91 314
+        # filas «COORDENADA ADECUADA MANUALMENTE» están marcadas
+        # `SIN COORDENADA` y sin embargo sí están geocodificadas de verdad
+        # (29 299 puntos distintos, 2.2 filas por punto). Se conservan.
+        drop_where:
+          observacion:
+            - GEO FORZADA AL CENTROIDE DE COMISARIA
+
+        # ── 2. Centroides de relleno ────────────────────────────────────────
+        # Aun descartando lo anterior queda un residuo del geocodificador: un
+        # único punto (-12.0463731, -77.042754, la Plaza de Armas) acumula
+        # 40 805 hechos provenientes de 36 127 direcciones escritas distintas.
+        # Es la coordenada a la que cae todo lo que no se supo resolver dentro
+        # del Cercado; hay una equivalente por distrito.
+        #
+        # Lo que los distingue de una esquina realmente caliente son las dos
+        # condiciones **a la vez**: muchos hechos y muchas direcciones
+        # distintas. Una esquina caliente de verdad acumula cientos de hechos
+        # sobre dos o tres direcciones; un centroide de relleno acumula cientos
+        # sobre cientos. Se exigen ambas para no castigar a la esquina.
+        fallback_points:
+          min_rows: 500          # hechos sobre la misma coordenada exacta
+          min_addresses: 100     # direcciones normalizadas distintas en ese punto
+
+    # Lima no tiene tabla de referencia contra la que validar, así que aquí sí
+    # se usa el criterio estadístico: el número de hotspots de cada mes sale de
+    # los datos y no de un parámetro. Con 90 meses y una red de 135 633 nodos,
+    # 99 réplicas por mes cuestan del orden de media hora.
+    hotspots:
+      selection:
+        method: montecarlo
+        null: uniform
+        alpha_sig: 0.05
+        replicates: 99
+        # 80 y no 50. Medido sobre seis meses repartidos por la ventana, el
+        # criterio retiene entre 36 y 62 regiones de las 118-318 candidatas; un
+        # tope de 50 lo saturaba en más de la mitad de los meses y volvía a
+        # convertir el número de hotspots en un parámetro, que es exactamente
+        # lo que este criterio existe para evitar. Sigue siendo un tope de
+        # seguridad, no un objetivo: nada lo toca.
+        max_k: 80
+
+    network:
+      place: "Provincia de Lima, Peru"
+      cache: data/interim/lima/network.graphml
+
+    pois:
+      cache: data/interim/lima/pois.parquet
+      # Overpass raciona y llegó a bloquear la IP durante días; Geofabrik es un
+      # fichero estático, reproducible y citable, y además tiene histórico.
+      source: geofabrik
+      region: south-america/peru
+      # Una instantánea por 1 de enero, la del *inicio* de cada año: así el
+      # perfil de un mes de 2019 no usa información de finales de 2019.
+      # Cubre 2018-01 .. 2025-06, que es la ventana del dataset.
+      years: [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+      snapshots_dir: data/interim/osm
+
+# ─── Rutas comunes ─────────────────────────────────────────────────────────
 data:
-  crimes_csv: data/raw/Crimes_-_2001_to_Present_20260822.csv
   raw_dir: data/raw
-  interim_dir: data/interim
-  processed_dir: data/processed
-
-  # Ventana de trabajo (§3.1). null = sin límite por ese extremo.
-  month_from: "2024-01"
-  month_to: "2025-12"
-
-  # Categorías de análisis (§3.1). null = todas.
-  categories:
-    - THEFT
-    - ASSAULT
-    - ROBBERY
-    - MOTOR VEHICLE THEFT
-
-  # Clave de deduplicación: auto | id | content | none.
-  # `content` colapsa incidentes distintos que comparten manzana y hora
-  # reportada, porque la fuente geocodifica al centroide del bloque.
-  dedupe: auto
-
-# ─── Red vial (§3.3) ───────────────────────────────────────────────────────
-network:
-  place: "Chicago, Illinois, USA"
-  network_type: drive
-  simplify: true
-
-  # La descarga es lenta y no determinista en el tiempo: se cachea en GraphML
-  # y no se vuelve a bajar salvo --force.
-  cache: data/interim/network.graphml
-
-  # Plegado de la clase `highway` de OSM a una jerarquía ordenada (§3.3).
-  # El orden de las claves importa: es el orden de la jerarquía.
-  hierarchy:
-    expressway: [motorway, motorway_link, trunk, trunk_link]
-    avenue:     [primary, primary_link]
-    collector:  [secondary, secondary_link, tertiary, tertiary_link]
-    street:     [residential, living_street, unclassified, road]
-    service:    [service, track, busway]
-  hierarchy_default: street
 
 # ─── Snapping de crímenes al grafo (§4.0) ──────────────────────────────────
 snapping:
@@ -87,6 +279,43 @@ hotspots:
   # crimen capturado. Ver README para la tabla completa.
   f_min_ratio: 0.10
 
+  # ── Cuántas regiones se queda cada mes ──────────────────────────────────
+  #
+  # `top_k` fijo obliga al mismo número de hotspots en un mes tranquilo y en
+  # uno con un brote: si en enero hay ocho concentraciones reales, el top-20
+  # rellena con doce que no son nada. El número de hotspots deja de ser un
+  # resultado y pasa a ser un parámetro.
+  #
+  #   fixed        los `top_k` de siempre.
+  #   percentile   el decil superior de las candidatas *de ese mes*. Adaptativo
+  #                y gratis, pero sin lectura estadística.
+  #   montecarlo   significancia contra distribución nula (Kulldorff 1997;
+  #                Shiode & Shiode 2020). Sobre Chicago da entre 3 y 11
+  #                hotspots por mes en vez de 20 fijos.
+  #
+  # El estadístico de contraste **no** es el crimen capturado sino la log-razón
+  # de verosimilitud de Poisson, que normaliza por el tamaño de la región. Con
+  # el crimen crudo el nulo uniforme produce regiones enormes que capturan más
+  # que cualquier hotspot real y nada resulta significativo; el fallo no está
+  # en el nulo sino en comparar concentración contra tamaño. Ver
+  # `pipeline/selection.py`.
+  #
+  # Los dos nulos responden a preguntas distintas:
+  #   uniform      ¿más concentrado que si el crimen cayera al azar sobre la
+  #                ciudad? Es el nulo del paper.
+  #   permutation  ¿más concentrado que si la misma cantidad de crimen se
+  #                repartiese entre los sitios donde de hecho pasa algo?
+  #                Condiciona sobre la oportunidad y es mucho más exigente
+  #                (1-3 hotspots/mes sobre Chicago).
+  selection:
+    method: fixed        # fixed | percentile | montecarlo
+    percentile: 0.90
+    alpha_sig: 0.05
+    replicates: 99
+    null: uniform        # uniform | permutation
+    min_k: 1             # topes de seguridad, no objetivos
+    max_k: 50
+
 # ─── Línea base (§7.2) ─────────────────────────────────────────────────────
 baseline:
   method: bfs
@@ -101,10 +330,24 @@ baseline:
   match_footprint: true
   node_budget: 18       # solo si match_footprint es false
 
+# ─── Red vial (§3.3) ───────────────────────────────────────────────────────
+network:
+  network_type: drive
+  simplify: true
+
+  # Plegado de la clase `highway` de OSM a una jerarquía ordenada (§3.3).
+  # El orden de las claves importa: es el orden de la jerarquía.
+  hierarchy:
+    expressway: [motorway, motorway_link, trunk, trunk_link]
+    avenue:     [primary, primary_link]
+    collector:  [secondary, secondary_link, tertiary, tertiary_link]
+    street:     [residential, living_street, unclassified, road]
+    service:    [service, track, busway]
+  hierarchy_default: street
+
 # ─── Puntos de interés (§3.2) ──────────────────────────────────────────────
 pois:
   taxonomy: pipeline/ingest/poi_taxonomy.yaml
-  cache: data/interim/pois.parquet
   buffer_m: 50.0        # buffer de la envolvente convexa del subgrafo
 
 # ─── Features y similitud (§5) ─────────────────────────────────────────────

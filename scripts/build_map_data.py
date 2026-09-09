@@ -52,6 +52,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from pipeline.config import available_datasets, load_config  # noqa: E402
 from pipeline.ingest.crimes import (  # noqa: E402
     CANONICAL_FIELDS,
     CrimeRecord,
@@ -60,19 +61,6 @@ from pipeline.ingest.crimes import (  # noqa: E402
 )
 
 logger = logging.getLogger("build_map_data")
-
-DEFAULT_CSV = ROOT / "data" / "raw" / "Crimes_-_2001_to_Present_20260822.csv"
-DEFAULT_OUT = ROOT / "dashboard" / "public" / "data"
-INTERIM = ROOT / "data" / "interim"
-
-#: Categorías de análisis del proyecto (§3.1). El dataset se recorta a estas
-#: salvo que se pase `--all-categories`.
-FOCUS_CATEGORIES: tuple[str, ...] = (
-    "THEFT",
-    "ASSAULT",
-    "ROBBERY",
-    "MOTOR VEHICLE THEFT",
-)
 
 QUANT_MAX = 65535
 
@@ -85,7 +73,11 @@ def _index(values: list[str], seen: dict[str, int], v: str) -> int:
     return i
 
 
-def pack(records: list[CrimeRecord], bbox: tuple[float, float, float, float]):
+def pack(
+    records: list[CrimeRecord],
+    bbox: tuple[float, float, float, float],
+    focus: tuple[str, ...] | None = None,
+):
     """Empaqueta los registros al búfer binario descrito en el docstring.
 
     Cuantiza cada coordenada a `Uint16` sobre la extensión de los datos::
@@ -157,7 +149,11 @@ def pack(records: list[CrimeRecord], bbox: tuple[float, float, float, float]):
         "categories": categories,
         "months": months,
         "places": places,
-        "focus_categories": [c for c in FOCUS_CATEGORIES if c in ci],
+        # Sin recorte explícito de categorías, el foco son todas las que
+        # quedaron: el alcance ya se decidió antes (en Lima, sobre `tipo_hecho`
+        # vía `keep_where`), y marcar unas pocas con estrella sugeriría un
+        # recorte que no existe.
+        "focus_categories": [c for c in (focus or ()) if c in ci] or categories,
         "matrix": matrix,
         "layout": [
             {"field": "lat", "type": "Uint16", "offset": 0},
@@ -187,38 +183,67 @@ def write_canonical(records: list[CrimeRecord], path: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--csv", type=Path, default=DEFAULT_CSV)
-    p.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    p.add_argument(
+        "--dataset",
+        default=None,
+        help="ciudad a procesar (bloque de `datasets:` en config.yaml). "
+             "Por defecto, `active_dataset`.",
+    )
+    p.add_argument("--config", type=Path, default=None)
+    p.add_argument("--csv", type=Path, default=None, help="anula data.crimes_csv")
+    p.add_argument("--out", type=Path, default=None,
+                   help="anula dashboard/public/data/<dataset>")
     p.add_argument("--from", dest="month_from", default=None, help="YYYY-MM")
     p.add_argument("--to", dest="month_to", default=None, help="YYYY-MM")
     p.add_argument(
         "--all-categories",
         action="store_true",
-        help="retener los 31 tipos (por defecto: solo las 4 del estudio)",
+        help="retener todos los tipos (por defecto: solo los que analiza la tesis)",
     )
     p.add_argument(
         "--dedupe",
         choices=("auto", "id", "content", "none"),
-        default="auto",
-        help="clave de deduplicación. Default: auto (usa `id` si existe)",
+        default=None,
+        help="clave de deduplicación. Por defecto, la del dataset en config.yaml",
     )
     p.add_argument("--no-canonical", action="store_true",
-                   help="no escribir data/interim/crimes_canonical.csv")
+                   help="no escribir <interim>/crimes_canonical.csv")
     args = p.parse_args(argv)
 
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(name)s  %(message)s"
     )
-    if not args.csv.exists():
-        logger.error("No existe el CSV: %s", args.csv)
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+    # Todo lo que define el recorte —CSV, ventana, categorías, perfil de fuente,
+    # limpieza— sale del config del dataset. Antes vivía aquí como constantes,
+    # lo que obligaba a editar el script para mirar otra ciudad y, peor, dejaba
+    # que este script y `crimepipe` cargasen el mismo CSV con criterios
+    # distintos: los dos artefactos se indexan por posición y solo casan si
+    # salieron de la misma carga.
+    cfg = load_config(args.config, args.dataset)
+    csv_path = args.csv or cfg.path(cfg.data.crimes_csv)
+    out_dir = args.out or cfg.dashboard_data
+    interim = cfg.path(cfg.data.interim_dir)
+    focus = tuple(cfg.data.categories or ())
+
+    if not csv_path.exists():
+        logger.error("No existe el CSV: %s", csv_path)
         return 1
+    logger.info("Dataset %s (%s) -> %s", cfg.dataset, cfg.dataset_label, out_dir)
 
     records, report = load_crimes(
-        args.csv,
-        categories=None if args.all_categories else FOCUS_CATEGORIES,
-        month_from=args.month_from,
-        month_to=args.month_to,
-        dedupe=args.dedupe,
+        csv_path,
+        categories=None if args.all_categories else (focus or None),
+        month_from=args.month_from or cfg.data.month_from,
+        month_to=args.month_to or cfg.data.month_to,
+        dedupe=args.dedupe or cfg.data.dedupe,
+        profile=cfg.data.source_profile,
+        cleaning=cfg.data.cleaning,
     )
     print()
     print(report.summary())
@@ -228,27 +253,34 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("Ningún registro sobrevivió. Revisa los filtros.")
         return 1
 
-    args.out.mkdir(parents=True, exist_ok=True)
-    buf, meta = pack(records, report.bbox)
-    meta["source_csv"] = args.csv.name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    buf, meta = pack(records, report.bbox, focus)
+    meta["dataset"] = cfg.dataset
+    # La tabla de §7.3, si esta ciudad tiene una. El dashboard omite las
+    # columnas de contraste cuando es `null`, en vez de restar contra los
+    # numeros de otra ciudad.
+    meta["reference"] = cfg.reference.model_dump() if cfg.reference else None
+    meta["label"] = cfg.dataset_label
+    meta["sublabel"] = cfg.dataset_sublabel
+    meta["source_csv"] = csv_path.name
     meta["window"] = f"{meta['months'][0]} .. {meta['months'][-1]}"
 
-    bin_path = args.out / "crimes.bin"
+    bin_path = out_dir / "crimes.bin"
     bin_path.write_bytes(buf)
-    (args.out / "crimes_meta.json").write_text(
+    (out_dir / "crimes_meta.json").write_text(
         json.dumps(meta, separators=(",", ":")), encoding="utf-8"
     )
-    (args.out / "validation_report.json").write_text(
+    (out_dir / "validation_report.json").write_text(
         json.dumps(report.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
     # Artefacto JSON antiguo: ya no se usa y confundiría al servirlo.
-    legacy = args.out / "crimes_points.json"
+    legacy = out_dir / "crimes_points.json"
     if legacy.exists():
         legacy.unlink()
 
     if not args.no_canonical:
-        canon = INTERIM / "crimes_canonical.csv"
+        canon = interim / "crimes_canonical.csv"
         write_canonical(records, canon)
         logger.info("Escrito %s (%.1f MB, %d columnas)",
                     canon, canon.stat().st_size / 1e6, len(CANONICAL_FIELDS))

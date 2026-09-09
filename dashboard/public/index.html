@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Chicago · Crimen 2024–2025</title>
+<title>Subgrafos de crimen urbano</title>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,10 +80,41 @@
     box-shadow: var(--shadow-md);
   }
 
-  .brand { display: flex; align-items: center; gap: 11px; padding: 9px 15px 9px 13px; border-radius: var(--r-md); }
-  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--crime); box-shadow: 0 0 0 4px var(--crime-dim); }
+  .brand {
+    display: flex; align-items: center; gap: 11px; padding: 9px 13px 9px 13px;
+    border-radius: var(--r-md); border: 1px solid rgba(255,255,255,.7);
+    font: inherit; color: inherit; text-align: left; cursor: pointer;
+    transition: background .13s ease;
+  }
+  .brand:hover { background: rgba(255,255,255,.78); }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--crime); box-shadow: 0 0 0 4px var(--crime-dim); flex: none; }
   .brand h1 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
-  .brand p  { margin: 1px 0 0; font-size: 10.5px; color: var(--muted); letter-spacing: .02em; }
+  .brand p  { margin: 1px 0 0; font-size: 10.5px; color: var(--muted); letter-spacing: .02em; white-space: nowrap; }
+  .brand .chev { flex: none; margin-left: 2px; }
+  .brand[aria-expanded="true"] .chev { opacity: .8; transform: rotate(180deg); }
+  /* Con una sola ciudad indexada el selector no ofrece nada: se comporta como
+     la etiqueta fija que era antes. */
+  .brand.solo { cursor: default; }
+  .brand.solo:hover { background: transparent; }
+  .brand.solo .chev { display: none; }
+
+  .ds {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 9px 10px; border: 1px solid transparent; border-radius: var(--r-sm);
+    background: transparent; font: inherit; color: inherit; text-align: left;
+    cursor: pointer; transition: background .13s ease, border-color .13s ease;
+  }
+  .ds:hover { background: var(--surface-2); }
+  .ds[aria-current="true"] { border-color: var(--ink); background: var(--surface-2); }
+  .ds .lab { flex: 1; min-width: 0; }
+  .ds .lab b { display: block; font-size: 12.5px; font-weight: 600; letter-spacing: -.01em; }
+  .ds .lab span { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .ds .n { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; flex: none; }
+  .ds .n b { display: block; font-weight: 600; color: var(--ink-2); }
+  /* `span.warn` y no `.warn` a secas: `.ds .lab span` de arriba tiene la misma
+     especificidad y viene después, así que ganaría y pintaría el aviso del
+     mismo gris que el subtítulo. */
+  .ds .lab span.warn { font-size: 10.5px; color: var(--crime); margin-top: 3px; }
 
   .spacer { flex: 1 1 auto; min-width: 0; }
   .cluster { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: var(--r-md); }
@@ -389,6 +420,8 @@
   .poileg i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
   .poileg span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .poileg b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); }
+  /* Sobrerrepresentación clara frente a la ciudad del mismo año (LQ >= 1.5). */
+  .poileg b.over { color: var(--crime); }
 
   .ab-actions { display: flex; gap: 6px; margin-top: 12px; }
   .ab-actions .minitog { flex: 1; padding: 5px; font-size: 10.5px; }
@@ -454,6 +487,10 @@
   #poi-key .k i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   #poi-key .k span { flex: 1; }
   #poi-key .k b { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
+  /* Rótulo de qué instantánea anual se está viendo: contexto, no una fila más. */
+  #poi-key .k.src { display: block; color: var(--muted); font-size: 10px;
+                    padding-bottom: 3px; margin-bottom: 3px;
+                    border-bottom: 1px solid var(--line); }
 
   /* ─── Panel D · línea de tiempo global ────────────────────────────── */
   #timeline {
@@ -609,6 +646,9 @@
   .chart .grid line { stroke: var(--line-soft); }
   .chart .alab { font: 600 9.5px var(--font); fill: var(--muted); letter-spacing: .04em; }
   .chart .pt { stroke: #fff; stroke-width: .6; }
+  /* Corte de la mediana que parte los cuatro cubos de frecuencia x estabilidad. */
+  .chart .split { stroke: var(--muted); stroke-width: .8; stroke-dasharray: 3 3;
+                  opacity: .55; }
   .chart .pt.dim { opacity: .32; }
   .chart .front { fill: none; stroke: var(--ink); stroke-width: 1.4;
                   stroke-dasharray: 3 3; opacity: .5; }
@@ -718,9 +758,22 @@
 <div id="map"></div>
 
 <div id="topbar">
-  <div class="brand glass">
-    <span class="dot"></span>
-    <div><h1>Chicago · Crimen</h1><p id="brand-sub">—</p></div>
+  <!-- Selector de ciudad. Es la marca misma: el dataset activo no es un
+       filtro más sino la identidad de todo lo que hay debajo, así que ocupa el
+       sitio del título en vez de esconderse entre los controles. -->
+  <div class="anchor">
+    <button class="brand glass" id="btn-dataset" aria-expanded="false" aria-haspopup="true">
+      <span class="dot"></span>
+      <div><h1 id="brand-title">—</h1><p id="brand-sub">—</p></div>
+      <svg class="chev" viewBox="0 0 10 10"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
+    </button>
+    <div class="pop" id="pop-dataset">
+      <h3 class="pop-title">Ciudad</h3>
+      <p class="pop-sub">Cada ciudad es un dataset independiente: su propia red
+        vial, su propia calibración y sus propios subgrafos. Cambiar de ciudad
+        recarga la página, porque no hay nada que reaprovechar entre las dos.</p>
+      <div id="dataset-list"></div>
+    </div>
   </div>
 
   <!-- A la izquierda porque su cajón se abre por la izquierda: el botón y el
@@ -934,12 +987,16 @@
       <button data-tab="params" aria-selected="false">Parámetros</button>
       <button data-tab="eval" aria-selected="false">Evaluación</button>
       <button data-tab="sim" aria-selected="false">Similitud</button>
+      <button data-tab="traj" aria-selected="false">Trayectorias</button>
+      <button data-tab="bench" aria-selected="false">Sintético</button>
     </div>
     <div class="tabpanel" id="tab-read"></div>
     <div class="tabpanel" id="tab-hs" hidden></div>
     <div class="tabpanel" id="tab-params" hidden></div>
     <div class="tabpanel" id="tab-eval" hidden></div>
     <div class="tabpanel" id="tab-sim" hidden></div>
+    <div class="tabpanel" id="tab-traj" hidden></div>
+    <div class="tabpanel" id="tab-bench" hidden></div>
   </div>
 </aside>
 
@@ -952,9 +1009,9 @@
     <div class="group">
       <h4>Mapa base</h4>
       <div class="chips" id="basemap">
-        <button class="chip" data-base="light_all" aria-pressed="true">Claro</button>
-        <button class="chip" data-base="light_nolabels">Sin etiquetas</button>
-        <button class="chip" data-base="voyager">Voyager</button>
+        <button class="chip" data-base="positron" aria-pressed="true">Claro</button>
+        <button class="chip" data-base="bright">Brillante</button>
+        <button class="chip" data-base="liberty">Liberty</button>
       </div>
     </div>
 
@@ -1100,14 +1157,35 @@ let CRIME = CRIME_DEFAULT;
 let RAMP = [];   // rampa de un solo tono, derivada de CRIME por `shades()`
 
 const MES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-const EXPECTED_SPEC = 213602;   // §7.3, sobre las 4 categorías del estudio
+/* Tabla de validación de §7.3. Viene en `crimes_meta.json` y es **del
+ * dataset**: §7.3 tabula lo que debe salir sobre Chicago 2024-2025. Una ciudad
+ * sin tabla la trae a `null`, y cada bloque que la usaba omite entonces la
+ * columna de contraste en vez de restar contra los números de otra ciudad. */
+let REF = null;
+
+/* Cómo se decidió cuántos subgrafos salen cada mes. Con `fixed` es la constante
+ * de siempre; con `percentile` o `montecarlo` el número es un **resultado**, así
+ * que se muestra el rango observado y no un valor que no se usó en ningún mes. */
+function kLabel(sel, topK) {
+  if (!sel || sel.method === "fixed") return `${topK || 20} (fijo)`;
+  const r = sel.hotspots_min === sel.hotspots_max
+    ? `${sel.hotspots_min}`
+    : `${sel.hotspots_min} – ${sel.hotspots_max}`;
+  const how = sel.method === "montecarlo"
+    ? `Monte Carlo, α=${sel.alpha_sig}, B=${sel.replicates}`
+    : `percentil ${sel.percentile}`;
+  return `${r} · media ${sel.hotspots_mean} <span class="sub">(${how})</span>`;
+}
 
 /* ═══ Estado ═════════════════════════════════════════════════════════ */
 
 let META, REPORT, MAP, ARR = {};
 let HS = null;        // hotspots.geojson — puede faltar (pipeline no ejecutado)
+let HS_K = null;      // Map mes → nº de subgrafos de ese mes (K es adaptativo)
 let SWEEP = null;     // param_sweep.json — puede faltar
 let EVAL = null;      // evaluation.json — puede faltar
+let CASES = null;     // casestudies.json — puede faltar
+let BENCH = null;     // benchmark.json — puede faltar
 let SNAP = null;      // snapping_meta.json — puede faltar
 let SNAPARR = null;   // vistas tipadas sobre snapping.bin
 let snapProblem = "";  // por qué la vista «Nodos» no está disponible
@@ -1228,8 +1306,25 @@ function zoomCurve(stops, factor) {
   for (const [z, v] of stops) e.push(z, v * factor);
   return e;
 }
-const basemapTiles = s => ["a","b","c"].map(h =>
-  `https://${h}.basemaps.cartocdn.com/${s}/{z}/{x}/{y}@2x.png`);
+/* Mapa base.
+ *
+ * **Por qué ya no es CARTO.** `basemaps.cartocdn.com` pasó a exigir clave de
+ * API: sigue devolviendo HTTP 200, pero la tesela es una marca de agua que
+ * dice «API KEY REQUIRED». Se comprobó pidiendo la misma tesela para el centro
+ * de Lima y para mar abierto: idéntico hash MD5, o sea que no es mapa.
+ * Un 200 que no es un error visible es el peor modo de fallo posible, así que
+ * conviene que quede escrito.
+ *
+ * OpenFreeMap sirve el mismo estilo Positron —el que este diseño asume— en
+ * vectorial, sin clave y sin cuota. */
+const BASEMAPS = {
+  positron: "https://tiles.openfreemap.org/styles/positron",
+  bright:   "https://tiles.openfreemap.org/styles/bright",
+  liberty:  "https://tiles.openfreemap.org/styles/liberty",
+};
+
+/** Ids de las fuentes propias, las que hay que conservar al cambiar de estilo. */
+const OWN_SOURCES = ["crimes", "hs", "nodes", "pois"];
 
 /* ═══ Color de los crímenes ══════════════════════════════════════════
  *
@@ -1406,6 +1501,88 @@ window.addEventListener("unhandledrejection", e => reportFatal("Promesa rechazad
  *  3. Los totales de cualquier filtro salen de una matriz mes×tipo de 24×31
  *     precalculada en Python, no de recorrer los 492 624 puntos.
  */
+
+/* ── Dataset activo ────────────────────────────────────────────────────────
+ *
+ * El dashboard es estático y sirve varias ciudades desde `data/<ciudad>/`.
+ * `DATA` es el prefijo de todo lo que se pide; se fija una sola vez, antes de
+ * la primera petición, y no vuelve a cambiar durante la vida de la página.
+ *
+ * Cambiar de ciudad **recarga**. Es deliberado: media docena de estructuras de
+ * este archivo (índices de hotspots, dominios de color, escalas, la capa de
+ * deck.gl, el estado de selección) se derivan de los artefactos en el arranque
+ * y no tienen camino de vuelta. Reconstruirlas en caliente sería reimplementar
+ * `boot()` una segunda vez y mantener las dos sincronizadas para siempre; una
+ * recarga hace lo mismo con una línea y sin estados intermedios imposibles.
+ */
+let DATASETS = null;      // contenido de data/datasets.json
+let DATASET = null;       // la entrada activa
+let DATA = "data/";       // prefijo de artefactos
+
+function datasetFromUrl() {
+  return new URLSearchParams(location.search).get("dataset");
+}
+
+async function resolveDataset() {
+  let index = null;
+  try {
+    index = await fetch("data/datasets.json").then(r => r.ok ? r.json() : null);
+  } catch (e) { /* servido sin índice: se cae al layout plano de abajo */ }
+
+  if (!index || !index.datasets || !index.datasets.length) {
+    // Sin índice se asume el layout antiguo, con los artefactos colgando
+    // directamente de `data/`. Así una copia vieja del sitio sigue abriendo.
+    console.warn("Sin data/datasets.json: se usa el layout plano data/.");
+    return;
+  }
+
+  DATASETS = index.datasets;
+  let want = datasetFromUrl();
+  if (!want) { try { want = localStorage.getItem("dataset"); } catch (e) {} }
+
+  DATASET = DATASETS.find(d => d.id === want)
+         || DATASETS.find(d => d.id === index.default)
+         || DATASETS[0];
+  DATA = "data/" + DATASET.dir + "/";
+  document.title = DATASET.label + " · Subgrafos de crimen urbano";
+}
+
+function switchDataset(id) {
+  if (!id || (DATASET && id === DATASET.id)) return;
+  try { localStorage.setItem("dataset", id); } catch (e) {}
+  // `assign` y no `replace`: volver atrás con el navegador debe devolver a la
+  // ciudad anterior, que es lo que espera quien está comparando dos.
+  const url = new URL(location.href);
+  url.searchParams.set("dataset", id);
+  location.assign(url.toString());
+}
+
+function buildDatasetPicker() {
+  const btn = $("btn-dataset");
+  if (!DATASETS || DATASETS.length < 2) {
+    btn.classList.add("solo");
+    btn.setAttribute("aria-disabled", "true");
+    return;
+  }
+  const list = $("dataset-list");
+  list.innerHTML = "";
+  for (const d of DATASETS) {
+    const b = document.createElement("button");
+    b.className = "ds";
+    b.type = "button";
+    b.setAttribute("aria-current", String(d.id === DATASET.id));
+    // `has` enumera los artefactos opcionales presentes. Anunciar que faltan es
+    // más útil que dejar que el usuario descubra las pestañas vacías.
+    const missing = !d.has || !d.has.includes("hotspots.geojson");
+    b.innerHTML =
+      `<span class="lab"><b>${d.label}</b><span>${d.sublabel || d.place || ""}</span>` +
+      (missing ? `<span class="warn">sin subgrafos: falta ejecutar el pipeline</span>` : "") +
+      `</span>` +
+      `<span class="n"><b>${fmtEs(d.n)}</b>${d.window || ""}</span>`;
+    b.addEventListener("click", () => switchDataset(d.id));
+    list.appendChild(b);
+  }
+}
 
 async function fetchBinary(url, onProgress) {
   const res = await fetch(url);
@@ -2027,17 +2204,68 @@ function buildPoiGeoJSON() {
   const [lat0, lon0, lat1, lon1] = POI.bbox;
   const Q = POI.quant_max;
   const kLat = (lat1 - lat0) / Q, kLon = (lon1 - lon0) / Q;
-  const { lat, lon, cat } = POIARR;
+  const { lat, lon, cat, year } = POIARR;
   const features = new Array(n);
   for (let i = 0; i < n; i++) {
     features[i] = {
       type: "Feature",
       geometry: { type: "Point",
                   coordinates: [lon0 + lon[i] * kLon, lat0 + lat[i] * kLat] },
-      properties: { c: cat[i] }
+      properties: year ? { c: cat[i], y: year[i] } : { c: cat[i] }
     };
   }
   return { type: "FeatureCollection", features };
+}
+
+/* Índice de la instantánea que corresponde al rango de meses visible.
+ *
+ * Los POIs son anuales y el mapa se mueve por meses, así que hay que elegir.
+ * Se toma el año del final del rango y se cae a la instantánea más cercana:
+ * enseñar el mapa de 2025 sobre crímenes de 2018 es justamente el anacronismo
+ * que el eje temporal existe para quitar. */
+function poiYearIndex() {
+  if (!POI || !POI.years || POI.years.length < 2) return null;
+  const meses = (typeof META !== "undefined" && META.months) ? hsFilterMonths() : [];
+  const y = meses.length ? +meses[meses.length - 1].slice(0, 4)
+                         : POI.years[POI.years.length - 1];
+  let best = 0;
+  for (let i = 1; i < POI.years.length; i++)
+    if (Math.abs(POI.years[i] - y) < Math.abs(POI.years[best] - y)) best = i;
+  return best;
+}
+
+/* Aplica al mapa la instantánea que toca y refresca leyenda y contador. */
+function refreshPoiYear() {
+  if (!POI || !MAP || !MAP.getLayer("poi-points")) return;
+  const idx = poiYearIndex();
+  if (idx === null) return;
+  MAP.setFilter("poi-points", ["==", ["get", "y"], idx]);
+  const n = (POI.counts_by_year || [])[idx];
+  if (n != null) $("poi-count").textContent = fmtEs(n);
+  const tag = $("poi-year");
+  if (tag) tag.textContent = POI.years[idx];
+  if (poiOn) buildPoiKey();
+}
+
+/* Leyenda por categoría. Con eje temporal los recuentos son los de la
+ * instantánea mostrada, no los del total acumulado de las ocho. */
+function buildPoiKey() {
+  const idx = poiYearIndex();
+  let counts = POI.counts;
+  if (idx !== null && POIARR && POIARR.year) {
+    counts = new Array(POI.categories.length).fill(0);
+    for (let i = 0; i < POI.n; i++)
+      if (POIARR.year[i] === idx) counts[POIARR.cat[i]]++;
+  }
+  const rows = POI.categories
+    .map((c, i) => ({ c, label: POI.labels[c] || c, n: counts[i] }))
+    .sort((a, b) => b.n - a.n);
+  $("poi-key").innerHTML =
+    (idx === null ? "" :
+      `<div class="k src">instantánea OSM de <b>${POI.years[idx]}</b></div>`) +
+    rows.map(r =>
+      `<div class="k"><i style="background:${poiColor(r.c)}"></i>` +
+      `<span>${r.label}</span><b>${fmtEs(r.n)}</b></div>`).join("");
 }
 
 function setPois(on) {
@@ -2046,14 +2274,7 @@ function setPois(on) {
   $("btn-poi").setAttribute("aria-pressed", String(on));
   MAP.setLayoutProperty("poi-points", "visibility", on ? "visible" : "none");
   $("poi-key").hidden = !on;
-  if (on && !$("poi-key").childElementCount) {
-    const rows = POI.categories
-      .map((c, i) => ({ c, label: POI.labels[c] || c, n: POI.counts[i] }))
-      .sort((a, b) => b.n - a.n);
-    $("poi-key").innerHTML = rows.map(r =>
-      `<div class="k"><i style="background:${poiColor(r.c)}"></i>` +
-      `<span>${r.label}</span><b>${fmtEs(r.n)}</b></div>`).join("");
-  }
+  if (on) buildPoiKey();
   try { localStorage.setItem("poiOn", on ? "1" : "0"); } catch (e) {}
 }
 
@@ -2089,55 +2310,79 @@ function buildGeoJSON(onProgress) {
 }
 
 async function boot() {
+  // Antes que cualquier otra petición: sin dataset resuelto no se sabe de qué
+  // carpeta colgar los artefactos.
+  await resolveDataset();
   try {
     progress(.02, "Leyendo metadatos…", "metadatos");
     const [m, r] = await Promise.all([
-      fetch("data/crimes_meta.json").then(x => x.json()),
-      fetch("data/validation_report.json").then(x => x.json())
+      fetch(DATA + "crimes_meta.json").then(x => x.json()),
+      fetch(DATA + "validation_report.json").then(x => x.json())
     ]);
     META = m; REPORT = r;
+    REF = m.reference || null;
   } catch (e) {
-    return fail("No se pudieron leer los metadatos.<br>Ejecuta <code class='c'>python scripts/build_map_data.py</code> " +
+    const ds = DATASET ? " --dataset " + DATASET.id : "";
+    return fail("No se pudieron leer los metadatos de <code class='c'>" + DATA + "</code>.<br>" +
+                "Ejecuta <code class='c'>python scripts/build_map_data.py" + ds + "</code>, " +
+                "luego <code class='c'>python scripts/build_datasets_index.py</code>, " +
                 "y sirve por HTTP con <code class='c'>python scripts/serve_map.py</code>.");
   }
 
   let buffer;
   try {
-    buffer = await fetchBinary("data/crimes.bin", (f, got, total) =>
+    buffer = await fetchBinary(DATA + "crimes.bin", (f, got, total) =>
       progress(.05 + f * .45,
         `Descargando <b>${(got / 1e6).toFixed(1)} MB</b> de ${(total / 1e6).toFixed(1)} MB`,
         "descarga de crimes.bin"));
   } catch (e) {
-    return fail("No se pudo descargar <code class='c'>data/crimes.bin</code> (" + e.message + ").");
+    return fail("No se pudo descargar <code class='c'>" + DATA + "crimes.bin</code> (" + e.message + ").");
   }
 
   // Artefactos del pipeline. Son opcionales: el mapa de verificación tiene que
   // seguir funcionando si `crimepipe hotspots`/`export` todavía no se han
   // ejecutado, así que un fallo aquí solo desactiva esas secciones.
   progress(.50, "Leyendo subgrafos…", "artefactos del pipeline");
-  POI = await fetch("data/pois_meta.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  POI = await fetch(DATA + "pois_meta.json").then(r => r.ok ? r.json() : null).catch(() => null);
   if (POI) {
     try {
-      const b = await fetchBinary("data/pois.bin", () => {});
+      const b = await fetchBinary(DATA + "pois.bin", () => {});
       const n = POI.n;
       POIARR = {
         lat: new Uint16Array(b, 0, n),
         lon: new Uint16Array(b, 2 * n, n),
-        cat: new Uint8Array(b, 4 * n, n)
+        cat: new Uint8Array(b, 4 * n, n),
+        // Solo con instantáneas anuales. El byte guarda el ÍNDICE en
+        // POI.years, no el año.
+        year: (POI.years && POI.years.length > 1)
+          ? new Uint8Array(b, 5 * n, n) : null
       };
     } catch (e) { console.warn("pois.bin ilegible:", e); POI = null; }
   } else {
     console.warn("Sin data/pois.bin: ejecuta `crimepipe pois` y `crimepipe export`.");
   }
 
+  [CASES, BENCH] = await Promise.all([
+    fetch(DATA + "casestudies.json").then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(DATA + "benchmark.json").then(r => r.ok ? r.json() : null).catch(() => null)
+  ]);
   [HS, SWEEP, EVAL, SNAP, SIM] = await Promise.all([
-    fetch("data/hotspots.geojson").then(r => r.ok ? r.json() : null).catch(() => null),
-    fetch("data/param_sweep.json").then(r => r.ok ? r.json() : null).catch(() => null),
-    fetch("data/evaluation.json").then(r => r.ok ? r.json() : null).catch(() => null),
-    fetch("data/snapping_meta.json").then(r => r.ok ? r.json() : null).catch(() => null),
-    fetch("data/similarity.json").then(r => r.ok ? r.json() : null).catch(() => null)
+    fetch(DATA + "hotspots.geojson").then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(DATA + "param_sweep.json").then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(DATA + "evaluation.json").then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(DATA + "snapping_meta.json").then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(DATA + "similarity.json").then(r => r.ok ? r.json() : null).catch(() => null)
   ]);
   if (!HS) console.warn("Sin data/hotspots.geojson: ejecuta `crimepipe export`.");
+  // Con el criterio estadístico, K deja de ser una constante y pasa a ser un
+  // resultado de cada mes. Contarlo de las propias features es lo único que no
+  // se desincroniza cuando se cambia de criterio o de dataset.
+  if (HS) {
+    HS_K = new Map();
+    for (const f of HS.features)
+      if (f.properties.kind === "area")
+        HS_K.set(f.properties.month, (HS_K.get(f.properties.month) || 0) + 1);
+  }
   if (!SWEEP) console.warn("Sin data/param_sweep.json: ejecuta `crimepipe calibrate`.");
   if (!EVAL) console.warn("Sin data/evaluation.json: ejecuta `crimepipe evaluate`.");
   if (!SIM) console.warn("Sin data/similarity.json: ejecuta `crimepipe features`.");
@@ -2157,8 +2402,9 @@ async function boot() {
   // huellas distintas cada crimen se pintaría en el nodo de otro. Antes que
   // enseñar un mapa plausible y falso, se desactiva la vista.
   if (!SNAP) {
-    snapProblem = "Falta <code class='c'>data/snapping.bin</code>. " +
-                  "Ejecuta <code class='c'>crimepipe export</code>.";
+    snapProblem = "Falta <code class='c'>" + DATA + "snapping.bin</code>. " +
+                  "Ejecuta <code class='c'>crimepipe export" +
+                  (DATASET ? " --dataset " + DATASET.id : "") + "</code>.";
   } else if (SNAP.fingerprint !== META.fingerprint || SNAP.n !== META.n) {
     snapProblem = "El snapping y los crímenes vienen de cargas distintas " +
                   `(<code class='c'>${SNAP.fingerprint}</code> vs ` +
@@ -2170,9 +2416,9 @@ async function boot() {
     try {
       progress(.50, "Leyendo el snapping a la red vial…", "descarga de snapping.bin");
       SNAPARR = snapViews(
-        await fetchBinary("data/snapping.bin", f => progress(.50 + f * .02)), SNAP);
+        await fetchBinary(DATA + "snapping.bin", f => progress(.50 + f * .02)), SNAP);
     } catch (e) {
-      snapProblem = "No se pudo leer <code class='c'>data/snapping.bin</code> (" + e.message + ").";
+      snapProblem = "No se pudo leer <code class='c'>" + DATA + "snapping.bin</code> (" + e.message + ").";
       SNAP = null;
     }
   }
@@ -2182,6 +2428,11 @@ async function boot() {
   monthLo = 0; monthHi = META.months.length - 1;
   selCats = new Set(META.categories.map((_, i) => i));
 
+  buildDatasetPicker();
+  // El nombre sale de los metadatos del artefacto, no del índice: es el que
+  // corresponde a los datos que se acaban de cargar. Si los dos discrepasen,
+  // el que manda es el que describe lo que hay en pantalla.
+  $("brand-title").textContent = META.label || (DATASET && DATASET.label) || "Crimen urbano";
   $("brand-sub").textContent =
     monthLabel(META.months[0], true) + " – " + monthLabel(META.months.at(-1), true);
   $("months-sub").innerHTML =
@@ -2219,12 +2470,7 @@ async function boot() {
   progress(.92, "Indexando teselas…", "mapa base");
   MAP = new maplibregl.Map({
     container: "map",
-    style: {
-      version: 8,
-      sources: { carto: { type: "raster", tiles: basemapTiles("light_all"),
-                          tileSize: 256, attribution: '© OpenStreetMap · © CARTO' } },
-      layers: [{ id: "basemap", type: "raster", source: "carto" }]
-    },
+    style: BASEMAPS[localStorage.getItem("basemap") || "positron"] || BASEMAPS.positron,
     center: [-87.72, 41.84], zoom: 10
   });
   MAP.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
@@ -2364,6 +2610,7 @@ function setupLayers(geojson) {
         "circle-stroke-color": "#ffffff"
       }
     });
+    refreshPoiYear();
   }
 
   if (HS) {
@@ -2701,7 +2948,8 @@ function selectHotspot(props, anchor = true) {
 
   const cats = typeof props.cats === "string" ? JSON.parse(props.cats) : props.cats;
   const names = HS.meta.categories;
-  const K = HS.meta.summary.top_k || 20;
+  // El rango es dentro de su mes, y con K adaptativo el total varía mes a mes.
+  const K = (HS_K && HS_K.get(props.month)) || HS.meta.summary.top_k || 20;
   $("card-kicker").textContent = `Subgrafo · rango ${props.rank} de ${K}`;
   $("card-title").textContent = props.id;
   $("card-sub").textContent =
@@ -2759,11 +3007,13 @@ function drawPoiDonut(hotspotId) {
   if (!p || !meta) return;
 
   const rows = meta.categories
-    .map((c, i) => ({ c, label: meta.labels[c] || c, v: p.counts[i] }))
+    .map((c, i) => ({ c, label: meta.labels[c] || c, v: p.counts[i],
+                      lq: p.lq ? p.lq[i] : null }))
     .filter(d => d.v > 0).sort((a, b) => b.v - a.v);
 
   $("poi-meta").innerHTML = p.total
     ? `${fmtEs(p.total)} lugares · entropía ${p.entropy_norm.toFixed(2)}`
+      + (p.year ? ` · OSM ${p.year}` : "")
     : "ninguno";
 
   const R = 43, r = 26;
@@ -2786,7 +3036,31 @@ function drawPoiDonut(hotspotId) {
   leg.order();
   leg.select("i").style("background", d => poiColor(d.c));
   leg.select("span").text(d => d.label);
-  leg.select("b").text(d => fmtEs(d.v));
+  // Con eje temporal se muestra el cociente de localización y no el recuento:
+  // entre 2018 y 2025 OSM absorbió un padrón escolar entero, así que "40
+  // colegios" no es comparable entre años y "x3.1 sobre la ciudad de su año"
+  // sí. El recuento sigue disponible en el `title`.
+  // `lq` viene con la RED como base, así que vale ~20x en cualquier hotspot:
+  // son zonas densas por definición y ese número no distingue unas de otras.
+  // Lo que se muestra es la especialización relativa, LQ_c dividido por la
+  // mediana de la propia zona, que centra en 1 y sigue siendo invariante a las
+  // importaciones de OSM porque los términos de red se cancelan al dividir.
+  const pos = (p.lq || []).filter(v => v > 0).sort((a, b) => a - b);
+  const med = pos.length ? pos[pos.length >> 1] : 0;
+  const rel = d => (d.lq == null || !med) ? null : d.lq / med;
+  leg.select("b")
+     .text(d => {
+       const r = rel(d);
+       if (r == null) return fmtEs(d.v);
+       return (r >= 1 ? "×" : "÷") + (r >= 1 ? r : 1 / r).toFixed(1);
+     })
+     .attr("class", d => { const r = rel(d); return r != null && r >= 1.5 ? "over" : null; })
+     .attr("title", d => {
+       const r = rel(d);
+       if (r == null) return null;
+       return `${fmtEs(d.v)} lugares · ${r.toFixed(2)}x la especialización mediana`
+            + ` de esta zona · LQ ${d.lq.toFixed(1)}x la densidad de Lima en ${p.year}`;
+     });
 }
 
 /* ═══ Subgrafos parecidos · §5.5 ══════════════════════════════════════
@@ -3559,8 +3833,11 @@ function applyFilters() {
     }
     const n = only
       ? focusIds.filter(id => hsFilterMonths().includes(id.slice(0, 7))).length
-      : (monthHi - monthLo + 1) * (HS.meta.summary.top_k || 20);
+      : (HS_K
+          ? hsFilterMonths().reduce((a, m) => a + (HS_K.get(m) || 0), 0)
+          : (monthHi - monthLo + 1) * (HS.meta.summary.top_k || 20));
     $("hs-count").textContent = fmtEs(n);
+    refreshPoiYear();
     // Si el subgrafo seleccionado sale del rango de meses, deja de tener sentido.
     if (hsSel && !hsFilterMonths().includes(hsSel.slice(0, 7))) selectHotspot(null);
   }
@@ -3614,6 +3891,7 @@ function mapPadding() {
 
 function wireUI() {
   const pops = [["btn-months", "pop-months"], ["btn-cats", "pop-cats"]];
+  if (DATASETS && DATASETS.length > 1) pops.push(["btn-dataset", "pop-dataset"]);
   const closePops = except => pops.forEach(([b, p]) => {
     if (p === except) return;
     $(p).classList.remove("open");
@@ -3775,7 +4053,26 @@ function wireUI() {
     const btn = e.target.closest("[data-base]"); if (!btn) return;
     document.querySelectorAll("[data-base]").forEach(b =>
       b.setAttribute("aria-pressed", String(b === btn)));
-    MAP.getSource("carto").setTiles(basemapTiles(btn.dataset.base));
+    try { localStorage.setItem("basemap", btn.dataset.base); } catch (err) {}
+
+    // `setStyle` reemplaza el estilo entero y se llevaría por delante las capas
+    // de crímenes, subgrafos, nodos y POIs. `transformStyle` las reinyecta sobre
+    // el estilo nuevo, así que no hay que reconstruir el GeoJSON —que para Lima
+    // son 27 MB— ni recablear la interfaz.
+    MAP.setStyle(BASEMAPS[btn.dataset.base] || BASEMAPS.positron, {
+      transformStyle: (prev, next) => {
+        if (!prev) return next;
+        const keep = {};
+        for (const id of OWN_SOURCES)
+          if (prev.sources[id]) keep[id] = prev.sources[id];
+        return {
+          ...next,
+          sources: { ...next.sources, ...keep },
+          layers: [...next.layers,
+                   ...prev.layers.filter(l => OWN_SOURCES.includes(l.source))],
+        };
+      },
+    });
   });
 
   MAP.on("click", "crimes-points", e => {
@@ -3831,7 +4128,9 @@ function wireUI() {
 
   // POIs
   if (POI) {
-    $("poi-count").textContent = fmtEs(POI.n);
+    const _pi = poiYearIndex();
+    $("poi-count").textContent = fmtEs(
+      _pi === null ? POI.n : POI.counts_by_year[_pi]);
     $("btn-poi").addEventListener("click", () => setPois(!poiOn));
     MAP.on("click", "poi-points", e => {
       const c = POI.categories[e.features[0].properties.c];
@@ -3913,7 +4212,7 @@ function wireUI() {
     const btn = e.target.closest("button"); if (!btn) return;
     document.querySelectorAll("#info-tabs button").forEach(b =>
       b.setAttribute("aria-selected", String(b === btn)));
-    for (const t of ["read", "hs", "params", "eval", "sim"])
+    for (const t of ["read", "hs", "params", "eval", "sim", "traj", "bench"])
       $("tab-" + t).hidden = t !== btn.dataset.tab;
     $("info-sub").textContent = {
       read: "Trazabilidad de la lectura del CSV",
@@ -3921,9 +4220,13 @@ function wireUI() {
       params: "Qué valores capturan más crimen",
       eval: "El método topológico contra las líneas base",
       sim: "Qué hace parecidos a dos subgrafos",
+      traj: "El mismo sitio a lo largo de los meses",
+      bench: "¿Acierta el método dónde está el hotspot?",
     }[btn.dataset.tab];
     if (btn.dataset.tab === "params") drawSweepCharts();
     if (btn.dataset.tab === "eval") drawEvalChart();
+    if (btn.dataset.tab === "traj") drawTrajTab();
+    if (btn.dataset.tab === "bench") drawBenchTab();
     makeCollapsible($("tab-" + btn.dataset.tab), 2);
   });
   makeCollapsible($("tab-read"), 2);
@@ -4068,11 +4371,296 @@ function applyHeat() {
 
 /* ═══ Cajón de información técnica ═══════════════════════════════════ */
 
+
+/* ═══ Trayectorias y estudios de caso ════════════════════════════════ */
+
+/* Un punto por trayectoria en un plano X-Y, con selección por arrastre.
+ *
+ * Es el gráfico que pide la nota: cada subgrafo persistente es UN punto, no
+ * uno por mes, porque la pregunta —«¿es muy frecuente o resaltó por algo
+ * puntual?»— es sobre el sitio y no sobre cada una de sus apariciones. */
+function trajScatter(sel, rows, xKey, yKey, xLab, yLab, opts) {
+  opts = opts || {};
+  const W = 300, H = 220, M = { t: 10, r: 12, b: 34, l: 46 };
+  const svg = d3.select(sel).attr("viewBox", `0 0 ${W} ${H}`);
+  svg.selectAll("*").remove();
+  const pts = rows.filter(d => d[xKey] != null && d[yKey] != null);
+  if (!pts.length) return;
+
+  const x = d3.scaleLinear().domain(opts.xDomain || d3.extent(pts, d => d[xKey]))
+              .nice().range([M.l, W - M.r]);
+  const y = (opts.yLog ? d3.scaleLog().clamp(true) : d3.scaleLinear())
+              .domain(opts.yDomain ||
+                (opts.yLog ? [Math.max(1, d3.min(pts, d => d[yKey])), d3.max(pts, d => d[yKey])]
+                           : d3.extent(pts, d => d[yKey])))
+              .nice().range([H - M.b, M.t]);
+
+  const g = svg.append("g");
+  g.append("g").attr("transform", `translate(0,${H - M.b})`)
+   .attr("class", "axis").call(d3.axisBottom(x).ticks(5).tickSize(3));
+  g.append("g").attr("transform", `translate(${M.l},0)`)
+   .attr("class", "axis").call(d3.axisLeft(y).ticks(5).tickSize(3));
+  svg.append("text").attr("class", "alab").attr("x", (W + M.l) / 2)
+     .attr("y", H - 4).attr("text-anchor", "middle").text(xLab);
+  svg.append("text").attr("class", "alab").attr("transform", "rotate(-90)")
+     .attr("x", -(H - M.b + M.t) / 2).attr("y", 11)
+     .attr("text-anchor", "middle").text(yLab);
+
+  // Cortes de la mediana: son los que parten los cuatro cubos de la nota.
+  if (opts.xSplit != null)
+    g.append("line").attr("class", "split")
+     .attr("x1", x(opts.xSplit)).attr("x2", x(opts.xSplit))
+     .attr("y1", M.t).attr("y2", H - M.b);
+  if (opts.ySplit != null)
+    g.append("line").attr("class", "split")
+     .attr("x1", M.l).attr("x2", W - M.r)
+     .attr("y1", y(opts.ySplit)).attr("y2", y(opts.ySplit));
+
+  g.selectAll("circle.pt").data(pts).join("circle")
+    .attr("class", "pt")
+    .attr("cx", d => x(d[xKey])).attr("cy", d => y(d[yKey]))
+    .attr("r", d => 1.8 + Math.min(3, Math.sqrt(d.k)))
+    .attr("fill", d => opts.color ? opts.color(d) : "var(--crime)")
+    .attr("opacity", .55)
+    .style("cursor", "pointer")
+    .on("click", (e, d) => focusTrajectory(d))
+    .append("title")
+    .text(d => `${d.id} · ${d.k} apariciones\n` +
+               `${xLab}: ${(+d[xKey]).toFixed(3)}\n` +
+               `${yLab}: ${fmtEs(Math.round(d[yKey]))}\n` +
+               `${d.months[0]} … ${d.months[d.months.length - 1]}`);
+}
+
+/* Pone en foco todos los subgrafos de una trayectoria, para verla en el mapa. */
+function focusTrajectory(t) {
+  // El orden importa: `setFocus` limpia `focusOnly` cuando la lista viene
+  // vacía y repinta por dentro, así que se activa después y se repinta otra vez.
+  setFocus(t.members, `trayectoria ${t.id}`);
+  focusOnly = true;
+  applyFilters();
+  // `anchor: false` para que no reemplace el foco por «los parecidos del
+  // primero»: lo que se quiere ver es la trayectoria entera.
+  if (t.members.length) selectHotspotById(t.members[0], false);
+}
+
+const QUAD_COLOR = {
+  frecuente_estable: "#e8354f", frecuente_movil: "#f08c00",
+  episodico_estable: "#4c6ef5", episodico_movil: "#868e96"
+};
+const QUAD_LABEL = {
+  frecuente_estable: "frecuente + estable", frecuente_movil: "frecuente + móvil",
+  episodico_estable: "episódico + estable", episodico_movil: "episódico + móvil"
+};
+
+function contrastTable(rows, n) {
+  if (!rows || !rows.length) return "";
+  return `<table class="sweep">
+    <tr><th>descriptor</th><th>persist.</th><th>episód.</th><th>δ</th><th>p aj.</th></tr>
+    ${rows.slice(0, n).map(r => {
+      // Se ordena por tamaño de efecto y no por p: con miles de subgrafos casi
+      // cualquier diferencia sale «significativa» y δ es lo que dice si importa.
+      const big = Math.abs(r.delta) >= 0.33;
+      const mid = Math.abs(r.delta) >= 0.147;
+      return `<tr><td>${r.name}</td>
+        <td>${r.mean_persistent.toFixed(3)}</td>
+        <td class="sub">${r.mean_episodic.toFixed(3)}</td>
+        <td class="${big ? "warn" : ""}">${r.delta >= 0 ? "+" : ""}${r.delta.toFixed(3)}</td>
+        <td class="sub">${r.p_adj == null ? "—" : r.p_adj.toFixed(4)}</td></tr>`;
+    }).join("")}
+  </table>`;
+}
+
+function drawTrajTab() {
+  if (!CASES) {
+    $("tab-traj").innerHTML = `<div class="group"><div class="callout info">
+      Sin <code class="c">casestudies.json</code>. Ejecuta
+      <code class="c">crimepipe casestudies</code>.</div></div>`;
+    return;
+  }
+  if ($("tab-traj").dataset.built) { return; }
+
+  const m = CASES.meta, q = CASES.quadrants;
+  const T = CASES.trajectories;
+  const lab = q.labels || {};
+  const multi = T.filter(t => t.k > 1);
+
+  $("tab-traj").innerHTML = `
+    <div class="group">
+      <h4>Intensidad × Frecuencia</h4>
+      <svg class="chart" id="ch-if"></svg>
+      <p class="hint">
+        Un punto por <b>trayectoria</b>, no por subgrafo-mes: la pregunta es
+        sobre el sitio. <b>Frecuencia</b> = meses en que aparece ÷
+        ${m.n_months} meses analizados. <b>Intensidad</b> = crímenes medios por
+        aparición, en escala logarítmica porque abarca tres órdenes de magnitud.
+        El tamaño del punto crece con el número de apariciones. Clic en un punto
+        para poner esa trayectoria en foco sobre el mapa.
+      </p>
+      <div class="callout info">
+        Arriba a la derecha están los <b>crónicos</b>: frecuentes e intensos.
+        Arriba a la izquierda, los que <b>resaltaron por algo puntual</b> — un
+        mes muy malo en un sitio que normalmente no lo es.
+      </div>
+    </div>
+
+    <div class="group">
+      <h4>Frecuencia × Estabilidad espacial</h4>
+      <svg class="chart" id="ch-fs"></svg>
+      <div class="legend" id="lg-quad"></div>
+      <p class="hint">
+        <b>Estabilidad</b> = IoU medio entre apariciones consecutivas; 1 es la
+        misma huella exacta, 0 es que no comparten nodos. Solo entran las
+        ${fmtEs(multi.length)} trayectorias con más de una aparición: con una
+        sola, la estabilidad no está definida y meterla como 0 la contaría como
+        «muy móvil», que es falso.
+        Los cortes son las <b>medianas observadas</b> (${q.freq_split} y
+        ${q.stab_split}), no valores fijos: «frecuente» no significa lo mismo en
+        24 meses que en 90.
+      </p>
+    </div>
+
+    <div class="group">
+      <h4>¿Los persistentes tienen otra topología?</h4>
+      <div class="kv"><dt>grupos</dt>
+        <dd>${fmtEs(m.n_persistent)} persistentes (f ≥ ${m.freq_terciles[1]}) vs
+            ${fmtEs(m.n_episodic)} episódicos (f ≤ ${m.freq_terciles[0]})</dd></div>
+      ${contrastTable(CASES.topology_contrast, 15)}
+      <p class="hint">
+        <b>δ</b> es la delta de Cliff, no una diferencia de medias: mide cuánto
+        se separan las <i>distribuciones</i> sin suponer normalidad. Convenio
+        &lt;0.147 despreciable, &lt;0.33 pequeño, &lt;0.474 mediano. <b>p aj.</b>
+        es Benjamini-Hochberg sobre los ${m.dims.length} descriptores: con esa
+        cantidad de pruebas se espera una significativa por azar.
+      </p>
+    </div>
+
+    ${CASES.poi_contrast && CASES.poi_contrast.length ? `
+    <div class="group">
+      <h4>¿Y en POIs?</h4>
+      ${contrastTable(CASES.poi_contrast, 12)}
+      <p class="hint">
+        ${CASES.poi_contrast.some(r => r.name.startsWith("lq:"))
+          ? `Sobre el <b>cociente de localización</b>, contra la ciudad del mismo
+             año: es lo único comparable cuando OSM absorbió un padrón escolar
+             entero a mitad de la ventana.`
+          : `Sobre <b>proporciones</b> y no recuentos. Los persistentes son más
+             grandes —<code class="c">log_n_nodes</code> los separa—, así que
+             contrastar recuentos crudos mediría tamaño y no función.`}
+      </p>
+    </div>` : ""}
+
+    <div class="group">
+      <h4>Matching: misma forma, muy distinto crimen</h4>
+      <table class="sweep">
+        <tr><th>más crimen</th><th>menos crimen</th><th>×</th><th>dist.</th></tr>
+        ${CASES.matched_pairs.map(r => `<tr>
+          <td><a href="#" data-hs="${r.high}">${r.high}</a> <span class="sub">${fmtEs(r.crimes_high)}</span></td>
+          <td><a href="#" data-hs="${r.low}">${r.low}</a> <span class="sub">${fmtEs(r.crimes_low)}</span></td>
+          <td>${r.ratio}</td><td class="sub">${r.topo_distance}</td></tr>`).join("")}
+      </table>
+      <p class="hint">
+        Pares en el 2 % de menor distancia estructural pero con crimen ≥3×.
+        Se excluyen los pares que se solapan en el espacio: dos recortes de la
+        misma esquina no son un contraste, son el mismo sitio dos veces.
+        Clic en un identificador para llevarlo al mapa.
+      </p>
+    </div>`;
+
+  $("tab-traj").dataset.built = "1";
+
+  trajScatter("#ch-if", T, "frequency", "intensity_mean",
+              "Frecuencia", "Intensidad (crímenes/mes)",
+              { yLog: true, xDomain: [0, d3.max(T, d => d.frequency)] });
+  trajScatter("#ch-fs", multi, "frequency", "stability",
+              "Frecuencia", "Estabilidad (IoU medio)",
+              { xSplit: q.freq_split, ySplit: q.stab_split,
+                yDomain: [0, 1],
+                color: d => QUAD_COLOR[lab[d.id]] || "#868e96" });
+
+  $("lg-quad").innerHTML = Object.keys(QUAD_LABEL).map(k =>
+    `<span class="k"><i style="background:${QUAD_COLOR[k]}"></i>` +
+    `${QUAD_LABEL[k]} <b>${fmtEs((q.counts || {})[k] || 0)}</b></span>`).join("");
+
+  $("tab-traj").addEventListener("click", e => {
+    const a = e.target.closest("a[data-hs]");
+    if (!a) return;
+    e.preventDefault();
+    setFocus([a.dataset.hs], "matching");
+    focusOnly = true; applyFilters(); selectHotspotById(a.dataset.hs, false);
+  });
+}
+
+function drawBenchTab() {
+  if (!BENCH) {
+    $("tab-bench").innerHTML = `<div class="group"><div class="callout info">
+      Sin <code class="c">benchmark.json</code>. Ejecuta
+      <code class="c">crimepipe benchmark</code>.</div></div>`;
+    return;
+  }
+  const p = BENCH.params;
+  const rows = Object.entries(BENCH.methods).map(([k, v]) => ({ k, s: v.summary }));
+  $("tab-bench").innerHTML = `
+    <div class="group">
+      <h4>Validación con datos sintéticos</h4>
+      <p class="hint">
+        Réplica de <b>Shiode &amp; Shiode (2020)</b>, §3 y §5. Es la única
+        métrica <b>absoluta</b> del proyecto: cobertura y ganancia sobre la línea
+        base dicen que se captura más crimen, pero ninguna dice si el método
+        acierta <i>dónde está</i> el hotspot, porque sobre datos reales no hay
+        verdad conocida.
+      </p>
+      <div class="kv"><dt>red</dt><dd>${p.network.place} · ${fmtEs(p.network.nodes)} nodos</dd></div>
+      <div class="kv"><dt>siembra</dt>
+        <dd>${p.parents} aristas · ${fmtEs(p.offspring)} hechos en clúster ·
+            ${fmtEs(p.background)} de fondo</dd></div>
+      <div class="kv"><dt>realizaciones</dt><dd>${BENCH.realisations}</dd></div>
+      <div class="kv"><dt>σ · selección</dt>
+        <dd>${p.sigma_m} m · ${p.selection.method}</dd></div>
+      <table class="sweep">
+        <tr><th>método</th><th>PPV</th><th>CV</th><th>Sensib.</th><th>F1</th><th>nodos</th></tr>
+        ${rows.map(r => `<tr><td>${r.k}</td>
+          <td>${r.s.ppv.mean.toFixed(3)}</td>
+          <td class="sub">${r.s.ppv.cv.toFixed(2)}</td>
+          <td>${r.s.sensitivity.mean.toFixed(3)}</td>
+          <td>${r.s.f1.mean.toFixed(3)}</td>
+          <td class="sub">${fmtEs(Math.round(r.s.detected_mean))}</td></tr>`).join("")}
+      </table>
+      <p class="hint">
+        <b>PPV</b> mide sobredisparo: de lo marcado, cuánto es hotspot de verdad.
+        <b>Sensibilidad</b> mide subdisparo. Cada una por separado se maximiza
+        haciendo trampa —marcar toda la ciudad da sensibilidad 1—, así que se
+        leen juntas o vía F1. <b>CV</b> es el coeficiente de variación entre
+        realizaciones, la columna que más dice de la Tabla 1 del paper.
+      </p>
+    </div>
+    ${BENCH.tests && Object.keys(BENCH.tests).length ? `
+    <div class="group">
+      <h4>U de Mann-Whitney sobre F1</h4>
+      <table class="sweep">
+        <tr><th>par</th><th>U</th><th>p</th></tr>
+        ${Object.entries(BENCH.tests).map(([pair, row]) => {
+          const f = row.f1 || {};
+          return `<tr><td>${pair}</td>
+            <td class="sub">${f.U == null ? "—" : f.U.toFixed(1)}</td>
+            <td class="${f.p != null && f.p < 0.05 ? "warn" : ""}">${
+              f.p == null ? "no definido" : f.p.toFixed(4)}</td></tr>`;
+        }).join("")}
+      </table>
+      <div class="callout info">
+        Que la línea base voraz gane en F1 <b>no es un fallo</b>: la verdad
+        sintética son picos puntuales sobre aristas, que es justo lo que persigue
+        una base que crece desde los nodos más calientes. Lo que el extractor
+        topológico gana es <b>crimen capturado sobre datos reales</b> (pestaña
+        Evaluación). Son dos preguntas distintas.
+      </div>
+    </div>` : ""}`;
+}
+
 function buildInfo() {
   const R = REPORT, T = R.total_rows;
   const focusTotal = META.focus_categories.reduce(
     (s, name) => s + catTotalsAll[META.categories.indexOf(name)], 0);
-  const delta = Math.abs(focusTotal - EXPECTED_SPEC) / EXPECTED_SPEC * 100;
+  const delta = REF ? Math.abs(focusTotal - REF.crimes_snapped) / REF.crimes_snapped * 100 : 0;
 
   $("tab-read").innerHTML = `
     <div class="group">
@@ -4090,11 +4678,17 @@ function buildInfo() {
       <div class="kv"><dt>clave usada</dt><dd><code>${R.dedupe_key}</code></dd></div>
       <div class="kv"><dt>filas eliminadas</dt><dd>${fmtEs(R.duplicate_rows)}</dd></div>
       <div class="note">
-        Cada fila trae un <code class="c">ID</code> único, así que no hay
-        duplicados reales. Sí hay ~1 475 filas que comparten fecha, tipo y
-        coordenada: son incidentes distintos que caen en la misma manzana a la
-        misma hora reportada, porque la fuente geocodifica al centroide del
-        bloque. Deduplicar por contenido borraría crímenes reales.
+        ${R.duplicate_rows
+          ? `La clave no es una columna sola: el identificador de la fuente
+             identifica la <i>denuncia</i>, y el ETL emite una fila por clave
+             subrogada, repitiendo el mismo hecho hasta nueve veces. Añadir
+             subtipo y modalidad colapsa esa repetición sin fundir dos hechos
+             distintos registrados bajo una misma denuncia.`
+          : `Cada fila trae un identificador único, así que no hay duplicados
+             reales. Sí hay filas que comparten fecha, tipo y coordenada: son
+             incidentes distintos que caen en la misma manzana a la misma hora
+             reportada, porque la fuente geocodifica al centroide del bloque.
+             Deduplicar por contenido borraría crímenes reales.`}
       </div>
     </div>
 
@@ -4119,17 +4713,26 @@ function buildInfo() {
         `<div class="kv"><dt>${k.replace(/_/g, " ")}</dt><dd>${fmtEs(v)}</dd></div>`).join("")}
       <p class="hint">Sin coordenada no hay nada que proyectar sobre la red vial.</p>
     </div>
+    ${srcExclusionsBlock(R)}
 
     <div class="group">
       <h4>Contraste con la especificación</h4>
-      <div class="kv"><dt>4 categorías del estudio</dt><dd>${fmtEs(focusTotal)}</dd></div>
-      <div class="kv"><dt>esperado por §7.3</dt><dd>${fmtEs(EXPECTED_SPEC)}</dd></div>
-      <div class="callout">
-        <b>${delta.toFixed(1)} %</b> de diferencia. El dataset y el recorte son
-        los correctos. Los ${fmtEs(R.filtered_rows)} incidentes de los otros
-        tipos de delito se filtraron en la ingesta, antes de generar el
-        artefacto: no llegan al navegador.
-      </div>
+      ${REF ? `
+        <div class="kv"><dt>${META.focus_categories.length} categorías del estudio</dt><dd>${fmtEs(focusTotal)}</dd></div>
+        <div class="kv"><dt>esperado por §7.3</dt><dd>${fmtEs(REF.crimes_snapped)}</dd></div>
+        <div class="callout">
+          <b>${delta.toFixed(1)} %</b> de diferencia. El dataset y el recorte son
+          los correctos. Los ${fmtEs(R.filtered_rows)} incidentes de los otros
+          tipos de delito se filtraron en la ingesta, antes de generar el
+          artefacto: no llegan al navegador.
+        </div>` : `
+        <div class="kv"><dt>${META.focus_categories.length} categorías del estudio</dt><dd>${fmtEs(focusTotal)}</dd></div>
+        <div class="callout info">
+          §7.3 tabula los valores esperados sobre Chicago 2024-2025. Este dataset
+          no tiene tabla de referencia, así que no hay contra qué contrastar:
+          restar contra los números de otra ciudad daría una diferencia con
+          formato impecable y sin significado.
+        </div>`}
     </div>
 
     <div class="group">
@@ -4775,7 +5378,8 @@ function buildEvalTab() {
       <div class="kv"><dt>σ · α · f_min</dt>
         <dd>${EVAL.meta.params.sigma_m} m · ${EVAL.meta.params.alpha} ·
             ${EVAL.meta.params.f_min_ratio}</dd></div>
-      <div class="kv"><dt>K por mes</dt><dd>${EVAL.meta.top_k}</dd></div>
+      <div class="kv"><dt>K por mes</dt>
+        <dd>${kLabel(EVAL.meta.selection, EVAL.meta.top_k)}</dd></div>
       <div class="kv"><dt>huella igualada</dt>
         <dd>${EVAL.meta.match_footprint ? "sí" : "no"}</dd></div>
       <div class="kv"><dt>calibrados en auto</dt>
@@ -4847,47 +5451,71 @@ function buildHotspotTab() {
     return;
   }
   const s = HS.meta.summary;
+  // `want` sale de la tabla del dataset, no de constantes: sin tabla la
+  // columna «Esperado» desaparece en vez de mostrar la de otra ciudad.
   const rows = [
-    ["Crímenes snappeados a la red", s.crimes_snapped, 213602, 0],
-    ["Nodos en la red vial", s.network_nodes, 29537, 0],
-    ["Subgrafos extraídos", s.hotspots, 480, 0],
-    ["Crímenes en los top-20/mes", s.crimes_captured, 26645, 0],
-    ["Nodos en subgrafos (24 meses)", s.nodes_in_hotspots, 8562, 0],
-    ["Nodo más caliente", s.hottest_node_crimes, 59, 0],
-    ["Cobertura", s.coverage * 100, 12.5, 1, " %"],
-    ["Densidad en hotspots", s.density_hotspots, 3.11, 2, " cr/nodo"],
-    ["Lift sobre la ciudad", s.lift, 10, 1, "×"],
+    ["Crímenes snappeados a la red", s.crimes_snapped, REF && REF.crimes_snapped, 0],
+    ["Nodos en la red vial", s.network_nodes, REF && REF.network_nodes, 0],
+    ["Subgrafos extraídos", s.hotspots, REF && REF.hotspots, 0],
+    [s.selection && s.selection.method !== "fixed"
+      ? "Crímenes en los subgrafos del mes"
+      : `Crímenes en los top-${s.top_k}/mes`,
+     s.crimes_captured, REF && REF.crimes_captured, 0],
+    [`Nodos en subgrafos (${META.months.length} meses)`, s.nodes_in_hotspots, REF && REF.nodes_in_hotspots, 0],
+    ["Nodo más caliente", s.hottest_node_crimes, REF && REF.hottest_node_crimes, 0],
+    ["Cobertura", s.coverage * 100, REF && REF.coverage * 100, 1, " %"],
+    ["Densidad en hotspots", s.density_hotspots, REF && REF.density_hotspots, 2, " cr/nodo"],
+    ["Lift sobre la ciudad", s.lift, REF && 10, 1, "×"],
   ];
   const tr = rows.map(([lab, got, want, dec, suf = ""]) => {
-    const d = (got - want) / want * 100;
     const fm = v => dec ? v.toFixed(dec) + suf : fmtEs(Math.round(v));
-    const cls = Math.abs(d) <= 2 ? "" : Math.abs(d) <= 10 ? "warn" : "warn";
+    if (!REF) return `<tr><td>${lab}</td><td>${fm(got)}</td></tr>`;
+    const d = (got - want) / want * 100;
+    const cls = Math.abs(d) <= 2 ? "" : "warn";
     return `<tr><td>${lab}</td><td>${fm(got)}</td><td class="sub">${fm(want)}</td>
             <td class="${cls}">${d >= 0 ? "+" : ""}${d.toFixed(1)} %</td></tr>`;
   }).join("");
 
   $("tab-hs").innerHTML = `
     <div class="group">
-      <h4>Resultado contra §7.3</h4>
+      <h4>${REF ? "Resultado contra §7.3" : "Resultado de la extracción"}</h4>
       <table class="sweep">
-        <tr><th>Métrica</th><th>Obtenido</th><th>Esperado</th><th>Δ</th></tr>
+        <tr><th>Métrica</th><th>Obtenido</th>${REF ? "<th>Esperado</th><th>Δ</th>" : ""}</tr>
         ${tr}
       </table>
-      <div class="callout info">
+      ${REF ? "" : `<div class="callout info">
+        §7.3 tabula los valores esperados sobre Chicago 2024-2025. Este dataset
+        no tiene tabla de referencia, así que la columna de contraste se omite.
+      </div>`}
+      ${REF ? `<div class="callout info">
         Huella y densidad quedan a ~9.5 %, fuera del ±2 % que pide la spec. Son
         la <b>misma desviación vista dos veces</b>: regiones algo más grandes
         capturando el mismo crimen. Ver la pestaña <b>Parámetros</b>: existe una
         configuración que ajusta las cuatro métricas dentro del ±2 %.
-      </div>
+      </div>` : ""}
     </div>
 
     <div class="group">
       <h4>Parámetros usados</h4>
       <div class="kv"><dt>σ · ancho de banda</dt><dd>${s.sigma_m} m</dd></div>
       <div class="kv"><dt>r · truncamiento</dt><dd>${s.sigma_m * 3} m (3σ)</dd></div>
+      <div class="kv"><dt>tipo de distancia</dt>
+        <dd>sobre la red vial (Dijkstra), <b>no</b> radio geográfico</dd></div>
       <div class="kv"><dt>α · persistencia</dt><dd>${s.alpha}</dd></div>
       <div class="kv"><dt>f_min · piso</dt><dd>${s.f_min_ratio}</dd></div>
-      <div class="kv"><dt>K · por mes</dt><dd>${s.top_k}</dd></div>
+      <div class="kv"><dt>K · por mes</dt>
+        <dd>${kLabel(s.selection, s.top_k)}</dd></div>
+      ${s.selection && s.selection.method === "montecarlo" ? `<div class="note">
+        <b>K no es un parámetro en este dataset.</b> Cada mes se simulan
+        ${s.selection.replicates} realizaciones bajo la hipótesis nula
+        (crimen repartido al azar sobre la red), se toma de cada una la
+        log-razón de verosimilitud de Poisson <b>máxima</b>, y sobrevive toda
+        región cuya Λ supere ese máximo con probabilidad &lt; ${s.selection.alpha_sig}.
+        Comparar contra el máximo por réplica es lo que hace innecesaria la
+        corrección por test múltiple. De ${s.selection.candidates_mean ?? "—"}
+        candidatas por mes de media sobreviven
+        ${s.selection.hotspots_min}–${s.selection.hotspots_max}.
+      </div>` : ""}
       <div class="note">
         El campo de densidad difunde un kernel gaussiano <b>a lo largo de las
         aristas</b> (Dijkstra acotado), no en línea recta: por eso no atraviesa
@@ -4985,15 +5613,16 @@ function buildParamsTab() {
 
   // Mejor configuración según el criterio de la spec: máxima cobertura sin
   // bajar de la densidad objetivo.
-  const viable = SWEEP.grid.filter(r => r.density >= T.density);
+  const viable = T ? SWEEP.grid.filter(r => r.density >= T.density) : [];
   const best = viable.length
     ? viable.reduce((a, r) => r.coverage > a.coverage ? r : a)
     : null;
-  // Y la que mejor reproduce §7.3 en las cuatro métricas a la vez.
+  // Y la que mejor reproduce §7.3 en las cuatro métricas a la vez. Sin
+  // objetivo la pregunta no existe: «lo más cercano a nada» no es nada.
   const err = r => Math.abs(r.coverage - T.coverage) / T.coverage
                  + Math.abs(r.nodes - T.nodes) / T.nodes
                  + Math.abs(r.density - T.density) / T.density;
-  const closest = SWEEP.grid.reduce((a, r) => err(r) < err(a) ? r : a);
+  const closest = T ? SWEEP.grid.reduce((a, r) => err(r) < err(a) ? r : a) : null;
 
   const cfgLabel = r => `σ=${r.sigma} · α=${r.alpha} · f_min=${r.f_min}`;
   const line = r => `${(r.coverage * 100).toFixed(1)} % cobertura · ` +
@@ -5032,17 +5661,24 @@ function buildParamsTab() {
       ${best ? `<div class="kv"><dt>máxima cobertura con densidad ≥ ${T.density}</dt>
                   <dd>${cfgLabel(best)}</dd></div>
                 <div class="kv"><dt></dt><dd class="sub">${line(best)}</dd></div>` : ""}
-      <div class="kv"><dt>mejor ajuste a §7.3</dt><dd>${cfgLabel(closest)}</dd></div>
-      <div class="kv"><dt></dt><dd class="sub">${line(closest)}</dd></div>
-      <div class="callout info">
-        <b>${cfgLabel(closest)}</b> reproduce las cuatro métricas de §7.3 dentro
-        del ±2 %: cobertura ${(closest.coverage * 100).toFixed(1)} % (objetivo
-        12.5 %), ${closest.nodes_per_month} nodos/mes (357) y
-        ${closest.density.toFixed(2)} cr/nodo (3.11). La configuración actual usa
-        σ=120 m porque §4.1 lo fija <i>explícitamente</i>; esta alternativa
-        contradice ese valor pero ajusta mejor los agregados. Es una decisión
-        abierta, no un bug.
-      </div>
+      ${closest ? `
+        <div class="kv"><dt>mejor ajuste a §7.3</dt><dd>${cfgLabel(closest)}</dd></div>
+        <div class="kv"><dt></dt><dd class="sub">${line(closest)}</dd></div>
+        <div class="callout info">
+          <b>${cfgLabel(closest)}</b> reproduce las cuatro métricas de §7.3 dentro
+          del ±2 %: cobertura ${(closest.coverage * 100).toFixed(1)} % (objetivo
+          ${(T.coverage * 100).toFixed(1)} %), ${closest.nodes_per_month} nodos/mes
+          y ${closest.density.toFixed(2)} cr/nodo (${T.density}). La configuración
+          actual usa σ=120 m porque §4.1 lo fija <i>explícitamente</i>; esta
+          alternativa contradice ese valor pero ajusta mejor los agregados. Es una
+          decisión abierta, no un bug.
+        </div>` : `
+        <div class="callout info">
+          Sin objetivo de §7.3 para este dataset no hay «mejor ajuste» que
+          calcular: la frontera de Pareto de abajo sigue diciendo qué
+          configuraciones no están dominadas, pero cuál de ellas es la buena es
+          una decisión que aquí no se puede tomar por comparación.
+        </div>`}
     </div>
 
     <div class="group">
@@ -5142,15 +5778,18 @@ function drawScatter() {
                `${(d.coverage * 100).toFixed(1)} % · ${d.density.toFixed(2)} cr/nodo · ` +
                `${d.nodes_per_month} nodos/mes`);
 
-  // Objetivo de §7.3.
-  svg.append("g").attr("class", "target")
-    .call(s => {
-      const cx = x(T.coverage), cy = y(T.density);
-      s.append("line").attr("x1", cx - 6).attr("x2", cx + 6).attr("y1", cy).attr("y2", cy);
-      s.append("line").attr("x1", cx).attr("x2", cx).attr("y1", cy - 6).attr("y2", cy + 6);
-    });
-  svg.append("text").attr("class", "note t")
-    .attr("x", x(T.coverage) + 9).attr("y", y(T.density) - 6).text("§7.3");
+  // Objetivo de §7.3, solo si esta ciudad tiene uno. Una cruz prestada de
+  // otro dataset se leería como una meta que este barrido no alcanza.
+  if (T) {
+    svg.append("g").attr("class", "target")
+      .call(s => {
+        const cx = x(T.coverage), cy = y(T.density);
+        s.append("line").attr("x1", cx - 6).attr("x2", cx + 6).attr("y1", cy).attr("y2", cy);
+        s.append("line").attr("x1", cx).attr("x2", cx).attr("y1", cy - 6).attr("y2", cy + 6);
+      });
+    svg.append("text").attr("class", "note t")
+      .attr("x", x(T.coverage) + 9).attr("y", y(T.density) - 6).text("§7.3");
+  }
 
   // Configuración actual.
   const base = g.find(d => d.sigma === b.sigma && d.alpha === b.alpha && d.f_min === b.f_min);
@@ -5217,10 +5856,75 @@ function drawMarginal(sel, key, label) {
     .attr("y", H - 4).attr("text-anchor", "middle").text(label.toUpperCase());
 }
 
+/* Exclusiones por decisión sobre la fuente: la tercera categoría de baja.
+ *
+ * Un **descarte** es un problema del CSV (coordenada ilegible, campo vacío) y
+ * mide la calidad de la fuente. Un **filtro** es una decisión de alcance
+ * (categoría no analizada, mes fuera de ventana) y mide el recorte. Una
+ * **exclusión** no es ninguna de las dos: la fila está bien formada y dentro
+ * del alcance, pero su geocodificación es falsa. Sobre Lima son 1 465 550
+ * filas, casi la mitad del archivo; sin este bloque el embudo enseñaría una
+ * caída enorme y muda. */
+function srcExclusionsBlock(R) {
+  const total = R.source_excluded_rows || 0;
+  if (!total) return "";
+  const by = R.source_by_reason || {};
+  const rules = R.source_rules || {};
+  const fp = R.fallback_points || [];
+  const dw = rules.drop_where || {};
+
+  const marcadas = Object.entries(dw).map(([col, vals]) =>
+    `<div class="kv"><dt><code>${col}</code></dt><dd>${vals.map(v =>
+      `<code>${v}</code>`).join(", ")}</dd></div>`).join("");
+
+  const fpRule = rules.fallback_points;
+  const fpTop = fp.slice(0, 6).map(f =>
+    `<div class="kv"><dt><code>${f.point}</code></dt><dd>${fmtEs(f.rows)} hechos</dd></div>`
+  ).join("");
+
+  return `
+    <div class="group">
+      <h4>Exclusiones de la fuente</h4>
+      <div class="kv"><dt>perfil</dt><dd><code>${R.source_profile}</code></dd></div>
+      <div class="kv"><dt>filas excluidas</dt><dd>${fmtEs(total)}
+        · ${(total / R.total_rows * 100).toFixed(1)} % del CSV</dd></div>
+      ${by.marcada_por_la_fuente ? `
+        <p class="hint" style="margin:12px 0 4px"><b>Marcadas por la fuente</b>
+          — ${fmtEs(by.marcada_por_la_fuente)} filas</p>
+        ${marcadas}
+        <div class="note">
+          Traen latitud y longitud rellenas y numéricamente válidas, así que
+          ninguna validación de coordenada las detecta. Lo que las delata es la
+          concentración: se reparten sobre un puñado de puntos, uno por
+          comisaría. Sobre un KDE de σ = 120 m cada comisaría sería el hotspot
+          más intenso de la ciudad.
+        </div>` : ""}
+      ${by.centroide_de_relleno ? `
+        <p class="hint" style="margin:14px 0 4px"><b>Centroides de relleno</b>
+          — ${fmtEs(by.centroide_de_relleno)} filas en ${fp.length} puntos</p>
+        ${fpTop}
+        ${fp.length > 6 ? `<p class="hint">… y ${fp.length - 6} puntos más.</p>` : ""}
+        <div class="note">
+          Coordenadas a las que el geocodificador manda todo lo que no supo
+          resolver. Se marcan por <b>dos condiciones a la vez</b>: al menos
+          ${fmtEs(fpRule ? fpRule.min_rows : 0)} hechos <i>y</i> al menos
+          ${fmtEs(fpRule ? fpRule.min_addresses : 0)} direcciones escritas
+          distintas sobre el mismo punto. Exigir solo volumen se llevaría por
+          delante la esquina genuinamente caliente —un mercado, un paradero—,
+          que es justo lo que el análisis busca; exigir solo variedad de
+          direcciones se llevaría cualquier manzana geocodificada a nivel de
+          cuadra, que es la precisión normal de la fuente.
+        </div>` : ""}
+    </div>`;
+}
+
 function drawFunnel(R, T) {
   const rows = [
     { t: "Filas en el CSV", v: T, cls: "allbar" },
     { t: "− Descartadas por calidad", v: R.discarded_rows, cls: "dropbar", d: true },
+    ...(R.source_excluded_rows ? [
+      { t: "− Excluidas por la fuente", v: R.source_excluded_rows, cls: "dropbar", d: true }
+    ] : []),
     { t: "− Duplicadas", v: R.duplicate_rows, cls: "dropbar", d: true },
     { t: "− Filtradas por alcance", v: R.filtered_rows, cls: "dropbar", d: true },
     { t: "Retenidas", v: R.kept_rows, cls: "keepbar", k: true }

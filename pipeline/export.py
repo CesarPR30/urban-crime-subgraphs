@@ -269,15 +269,21 @@ def snapping_binary(
 
 
 def pois_binary(lat, lon, category, categories: list[str],
-                labels: dict[str, str] | None = None) -> tuple[bytes, dict]:
+                labels: dict[str, str] | None = None,
+                year=None) -> tuple[bytes, dict]:
     """Empaqueta los POIs clasificados para el mapa.
 
-    Mismo criterio que `crimes.bin`: 5 bytes por POI en vez de ~90 de JSON.
+    Mismo criterio que `crimes.bin`: 5 bytes por POI en vez de ~90 de JSON,
+    6 con el eje temporal.
 
         offset      tipo      campo
         0           Uint16    lat[n]   cuantizada sobre el bbox de los POIs
         2n          Uint16    lon[n]
         4n          Uint8     cat[n]   índice en `categories`
+        5n          Uint8     year[n]  índice en `meta["years"]`, si lo hay
+
+    El año va como **índice** y no como valor: ocho instantáneas caben en un
+    byte y así el campo no impone un rango de años al formato.
 
     Los nombres NO van: son 27 000 cadenas de texto, más peso que todo lo demás
     junto, y el mapa muestra categorías, no rótulos.
@@ -291,6 +297,16 @@ def pois_binary(lat, lon, category, categories: list[str],
     codes = np.array([index.get(str(c), -1) for c in category], dtype=np.int64)
     keep = codes >= 0
     lat, lon, codes = lat[keep], lon[keep], codes[keep]
+
+    years: list[int] = []
+    ycodes = None
+    if year is not None:
+        yr = np.asarray(year, dtype=np.int64)[keep]
+        years = [int(v) for v in np.unique(yr)]
+        if len(years) > 256:
+            raise ValueError(f"{len(years)} instantáneas no caben en Uint8")
+        ymap = {v: i for i, v in enumerate(years)}
+        ycodes = np.array([ymap[int(v)] for v in yr], dtype=np.int64)
 
     n = lat.size
     lat0, lat1 = (float(lat.min()), float(lat.max())) if n else (0.0, 0.0)
@@ -306,7 +322,17 @@ def pois_binary(lat, lon, category, categories: list[str],
         for a in (q_lat, q_lon):
             a.byteswap()
 
-    buf = b"".join(a.tobytes() for a in (q_lat, q_lon, q_cat))
+    arrays = [q_lat, q_lon, q_cat]
+    layout = [
+        {"field": "lat", "type": "Uint16", "offset": 0},
+        {"field": "lon", "type": "Uint16", "offset": 2 * int(n)},
+        {"field": "cat", "type": "Uint8", "offset": 4 * int(n)},
+    ]
+    if ycodes is not None:
+        arrays.append(array("B", ycodes.astype(np.uint8).tobytes()))
+        layout.append({"field": "year", "type": "Uint8", "offset": 5 * int(n)})
+
+    buf = b"".join(a.tobytes() for a in arrays)
     meta = {
         "n": int(n),
         "bbox": [lat0, lon0, lat1, lon1],
@@ -314,10 +340,11 @@ def pois_binary(lat, lon, category, categories: list[str],
         "categories": list(categories),
         "labels": dict(labels or {}),
         "counts": [int((codes == i).sum()) for i in range(len(categories))],
-        "layout": [
-            {"field": "lat", "type": "Uint16", "offset": 0},
-            {"field": "lon", "type": "Uint16", "offset": 2 * int(n)},
-            {"field": "cat", "type": "Uint8", "offset": 4 * int(n)},
-        ],
+        "years": years,
+        "counts_by_year": (
+            [int((ycodes == i).sum()) for i in range(len(years))]
+            if ycodes is not None else []
+        ),
+        "layout": layout,
     }
     return buf, meta

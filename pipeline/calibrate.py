@@ -127,7 +127,7 @@ def evaluate_combo(months, fields, g, counts, cat_counts, alpha, f_min, k):
     """Agrega las métricas de §7.1 para una combinación, sobre los 24 meses."""
     cap = nodes = n_hs = 0
     for m in months:
-        hs = extract_month(m, fields[m], g, counts[m], cat_counts[m],
+        hs, _ = extract_month(m, fields[m], g, counts[m], cat_counts[m],
                            alpha=alpha, f_min_ratio=f_min, top_k=k)
         cap += sum(h.crimes for h in hs)
         nodes += sum(h.n_nodes for h in hs)
